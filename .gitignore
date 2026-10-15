@@ -27,3 +27,4 @@ rustc-ice-*.txt
 # Added by cargo
 
 /target
+/.idea
