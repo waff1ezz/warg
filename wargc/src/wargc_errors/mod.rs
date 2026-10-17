@@ -1,2 +1,2 @@
 pub mod driver;
-mod error;
+pub mod error;
