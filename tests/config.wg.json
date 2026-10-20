@@ -1,6 +1,6 @@
 {
   "name": "test",
   "version": "1.0",
-  "entry_point": "/src/main.wg",
-  "output_dir": "/target"
+  "entry_point": "src/main.wg",
+  "output_dir": "target"
 }
