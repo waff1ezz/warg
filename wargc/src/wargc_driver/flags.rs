@@ -26,13 +26,13 @@ impl Flags {
                 .len() > 0;
 
             if has_duplicates {
-                return Err(DriverError::DuplicatedFlag(Box::from(name)));
+                return Err(DriverError::DuplicatedFlag(String::from(name)));
             }
 
             flags.push(enum_ident);
 
             if flags.len() > 1 && !flags.contains(&&Flags::RunVerbose) {
-                return Err(DriverError::ContradictoryFlags(Box::from(name)));
+                return Err(DriverError::ContradictoryFlags(String::from(name)));
             }
 
             Ok(())
@@ -46,7 +46,7 @@ impl Flags {
                 "--dump-tokens" => push_flag(arg.as_str(), Flags::DumpTokens)?,
                 "--dump-ast" => push_flag(arg.as_str(), Flags::DumpAst)?,
                 "--dump-bc" => push_flag(arg.as_str(), Flags::DumpBc)?,
-                _ => return Err(DriverError::InvalidFlag(Box::from(&*arg)))
+                _ => return Err(DriverError::InvalidFlag(String::from(&*arg)))
             }
         }
 
