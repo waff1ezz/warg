@@ -3,14 +3,13 @@ use crate::wargc_errors::error::Error;
 use crate::wargc_driver::CONFIG_FILE_NAME;
 
 pub enum DriverError {
-    Fatal (Box<str>),
-    IO (Box<str>, std::io::Error),
+    IO (String, std::io::Error),
     ConfigDeserialization (serde_json::Error),
-    ConfigPropertyMissing (Box<str>),
-    ConfigPropertyInvalid (Box<str>),
-    InvalidFlag (Box<str>),
-    DuplicatedFlag (Box<str>),
-    ContradictoryFlags (Box<str>)
+    ConfigPropertyMissing (String),
+    ConfigPropertyInvalid (String),
+    InvalidFlag (String),
+    DuplicatedFlag (String),
+    ContradictoryFlags (String)
 }
 
 impl Error for DriverError {
@@ -23,14 +22,13 @@ impl Error for DriverError {
             DriverError::InvalidFlag(flag) => throw_invalid_flag(flag),
             DriverError::DuplicatedFlag(flag) => throw_duplicated_flag(flag),
             DriverError::ContradictoryFlags(flag) => throw_contradictory_flags(flag),
-            DriverError::Fatal(cause) => throw_fatal(cause),
         }
 
         fn throw_duplicated_flag(flag_name: &str) -> ! {
             eprintln!("{}: duplicated flag '{flag_name}'", error_label());
             std::process::exit(6);
         }
-        
+
         fn throw_invalid_flag(flag_name: &str) -> ! {
             eprintln!("{}: invalid compilation flag '{flag_name}'", error_label());
             std::process::exit(6);
@@ -62,11 +60,6 @@ impl Error for DriverError {
 
         fn throw_io_error(file: &str, kind: std::io::ErrorKind) -> ! {
             eprintln!("{}: failed to read file: '{file}'. io: {}", error_label(), kind.to_string());
-            std::process::exit(3);
-        }
-
-        fn throw_fatal(cause: &str) -> ! {
-            eprintln!("{}: Fatal compiler error: {cause}", error_label());
             std::process::exit(3);
         }
         
