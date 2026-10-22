@@ -34,22 +34,22 @@ impl File {
             char: 1,
         };
 
-        while let Some((idx, this_char)) = state.iter.next() {
+        while let Some((char_byte_idx, this_char)) = state.iter.next() {
             match this_char {
                 c if c.is_alphabetic() => Self::parse_keyword_or_identifier(
-                    &self.source, &mut tokens, &mut state, idx
+                    &self.source, &mut tokens, &mut state, char_byte_idx, this_char
                 ),
 
                 c if c.is_ascii_digit() => Self::parse_number_literal(
-                    &self.source, &mut tokens, self.path.clone(), &mut state, idx
+                    &self.source, &mut tokens, self.path.clone(), &mut state, char_byte_idx
                 ),
 
                 '\"' => Self::parse_string_literal(
-                    &self.source, &mut tokens, self.path.clone(), &mut state, idx
+                    &self.source, &mut tokens, self.path.clone(), &mut state, char_byte_idx
                 ),
 
                 c if c.is_ascii_punctuation() => Self::parse_operator(
-                    &self.source, &mut tokens, &mut state, idx
+                    &self.source, &mut tokens, &mut state, char_byte_idx
                 ),
 
                 '\n' => {
@@ -88,113 +88,132 @@ impl File {
         source: &str,
         tokens: &mut Vec<Token>,
         state: &mut ReadingState,
-        buf_start: usize,
-        buf_end: usize,
+        first_char_byte_idx: usize,
+        last_char_byte_idx: usize,
+        first_char_pos: usize,
         str: Option<String>
     ) {
-        let span = buf_start..buf_end;
-        let token_chars = &source[buf_start..buf_end];
+        let span = first_char_byte_idx..last_char_byte_idx;
+        let token_chars = &source[first_char_byte_idx..last_char_byte_idx];
         let token = match state.read_mode {
             ReadMode::ReadIdentifierOrKeyword => match token_chars {
-                "true" => Token::new(TokenKind::True, state.line, state.char, span),
-                "false" => Token::new(TokenKind::False, state.line, state.char, span),
-                _ => Token::new(TokenKind::Identifier, state.line, state.char, span),
+                "true" => Token::new(TokenKind::True, state.line, first_char_pos, span),
+                "false" => Token::new(TokenKind::False, state.line, first_char_pos, span),
+                _ => Token::new(TokenKind::Identifier, state.line, first_char_pos, span),
             }
 
             ReadMode::ReadOperator => match token_chars {
-                "+" => Token::new(TokenKind::Plus, state.line, state.char, span),
-                "-" => Token::new(TokenKind::Minus, state.line, state.char, span),
-                "*" => Token::new(TokenKind::Star, state.line, state.char, span),
-                "/" => Token::new(TokenKind::Slash, state.line, state.char, span),
-                "=" => Token::new(TokenKind::Equals, state.line, state.char, span),
-                "==" => Token::new(TokenKind::DoubleEquals, state.line, state.char, span),
-                "!=" => Token::new(TokenKind::NotEquals, state.line, state.char, span),
-                "<" => Token::new(TokenKind::LessThan, state.line, state.char, span),
-                ">" => Token::new(TokenKind::GreaterThan, state.line, state.char, span),
-                "<=" => Token::new(TokenKind::LessThanEquals, state.line, state.char, span),
-                ">=" => Token::new(TokenKind::GreaterThanEquals, state.line, state.char, span),
-                "(" => Token::new(TokenKind::LeftParentheses, state.line, state.char, span),
-                ")" => Token::new(TokenKind::RightParentheses, state.line, state.char, span),
-                ";" => Token::new(TokenKind::Semicolon, state.line, state.char, span),
-                _ => Token::new(TokenKind::UnknownToken, state.line, state.char, span)
+                "+" => Token::new(TokenKind::Plus, state.line, first_char_pos, span),
+                "-" => Token::new(TokenKind::Minus, state.line, first_char_pos, span),
+                "*" => Token::new(TokenKind::Star, state.line, first_char_pos, span),
+                "/" => Token::new(TokenKind::Slash, state.line, first_char_pos, span),
+                "=" => Token::new(TokenKind::Equals, state.line, first_char_pos, span),
+                "==" => Token::new(TokenKind::DoubleEquals, state.line, first_char_pos, span),
+                "!=" => Token::new(TokenKind::NotEquals, state.line, first_char_pos, span),
+                "<" => Token::new(TokenKind::LessThan, state.line, first_char_pos, span),
+                ">" => Token::new(TokenKind::GreaterThan, state.line, first_char_pos, span),
+                "<=" => Token::new(TokenKind::LessThanEquals, state.line, first_char_pos, span),
+                ">=" => Token::new(TokenKind::GreaterThanEquals, state.line, first_char_pos, span),
+                "(" => Token::new(TokenKind::LeftParentheses, state.line, first_char_pos, span),
+                ")" => Token::new(TokenKind::RightParentheses, state.line, first_char_pos, span),
+                ";" => Token::new(TokenKind::Semicolon, state.line, first_char_pos, span),
+                _ => Token::new(TokenKind::UnknownToken, state.line, first_char_pos, span)
             }
 
             ReadMode::ReadNumberLiteral => {
-                Token::new(TokenKind::Number, state.line, state.char, span)
+                Token::new(TokenKind::Number, state.line, first_char_pos, span)
             }
 
             ReadMode::ReadStringLiteral => {
                 let length = token_chars.chars().count();
                 match str {
-                    Some(str) => Token::new(TokenKind::String(str), state.line, state.char - length, span),
+                    Some(str) => Token::new(TokenKind::String(str), state.line, first_char_pos - length, span),
                     None => throw_fatal("an attempt to push string literal without passing 'str' argument")
                 }
             }
 
             ReadMode::Unset => {
-                Token::new(TokenKind::UnknownToken, state.line, state.char, span)
+                Token::new(TokenKind::UnknownToken, state.line, first_char_pos, span)
             }
         };
 
         tokens.push(token);
     }
 
-    fn parse_keyword_or_identifier<'a>(
+    fn parse_keyword_or_identifier(
         source: &str,
         tokens: &mut Vec<Token>,
         state: &mut ReadingState,
-        buf_start: usize
+        first_char_byte_idx: usize,
+        first_char: char
     ) {
-        let mut buf_end = buf_start + 1;
+        let mut last_char_byte_idx = first_char_byte_idx + first_char.len_utf8();
+        let first_char_pos = state.char;
+
         state.read_mode = ReadMode::ReadIdentifierOrKeyword;
 
-        while let Some(&(_, next)) = state.iter.peek() {
-            state.char += 1;
-
-            if !next.is_alphanumeric() {
+        while let Some(&(_, char)) = state.iter.peek() {
+            if !char.is_alphanumeric() {
                 break;
             }
 
-            buf_end += 1;
-            state.iter.next();
+            state.char += 1;
+            last_char_byte_idx += state.iter
+                .next()
+                .unwrap()
+                .1.len_utf8();
         }
 
-        Self::push_token(source, tokens, state, buf_start, buf_end, None);
+        Self::push_token(
+            source,
+            tokens,
+            state,
+            first_char_byte_idx,
+            last_char_byte_idx,
+            first_char_pos,
+            None
+        );
     }
 
-    fn parse_string_literal<'a>(
+    fn parse_string_literal(
         source: &str,
         tokens: &mut Vec<Token>,
         file_path: PathBuf,
         state: &mut ReadingState,
-        buf_start: usize
+        first_char_byte_idx: usize,
     ) {
-        let mut buf_end = buf_start + 1;
+        // we don't use first_char because it's always " with byte length 1
+
+        let mut last_char_byte_idx = first_char_byte_idx + 1;
+        let first_char_pos = state.char;
+
         state.read_mode = ReadMode::ReadStringLiteral;
 
-        while let Some(&(_, next)) = state.iter.peek() {
-            state.char += 1;
-
-            if next == '"' && source.chars().nth(buf_end - 1).unwrap() != '\\' {
-                state.iter.next();
+        let mut last_consumed = '"';
+        while let Some((_, char)) = state.iter.next() {
+            if char == '"' && last_consumed != '\\' {
                 break;
             }
 
-            buf_end += 1;
-            state.iter.next();
+            last_char_byte_idx += char.len_utf8();
+            state.char += 1;
+
+            last_consumed = char;
         }
 
-        let str_slice = source[buf_start + 1..buf_end].to_string();
+        let str_slice = source[(first_char_byte_idx + 1)..last_char_byte_idx]
+            .to_string();
+
         let mut str_iter = str_slice
             .chars()
             .enumerate()
             .peekable();
 
         let mut escaped_str = String::new();
-        while let Some((_idx, char)) = str_iter.next() {
+        while let Some((_, char)) = str_iter.next() {
             if char == '\\' {
-                let next = str_iter.peek().map(|(_, char)| char);
-                match next {
+                let next_char = str_iter.peek().map(|(_, char)| char);
+                match next_char {
                     Some('n') => escaped_str.push('\n'),
                     Some('r') => escaped_str.push('\r'),
                     Some('t') => escaped_str.push('\t'),
@@ -207,32 +226,45 @@ impl File {
                             line: state.line,
                             char: state.char,
                             length: 2,
-                            kind: ParseErrorKind::UnknownCharacterEscape(*next.unwrap_or(&' ')),
+                            kind: ParseErrorKind::UnknownCharacterEscape(
+                                *next_char.unwrap_or(&' ')
+                            ),
                         };
 
                         err.throw();
                     }
                 }
 
-                str_iter.next();
+                str_iter.next().unwrap();
                 continue;
             }
 
             escaped_str.push(char);
         }
 
-        Self::push_token(source, tokens, state, buf_start, buf_end, Some(escaped_str));
+        Self::push_token(
+            source,
+            tokens,
+            state,
+            first_char_byte_idx,
+            last_char_byte_idx,
+            first_char_pos,
+            Some(escaped_str)
+        );
     }
 
-    fn parse_number_literal<'a>(
+    fn parse_number_literal(
         source: &str,
         tokens: &mut Vec<Token>,
         file_path: PathBuf,
         state: &mut ReadingState,
-        buf_start: usize
+        first_char_byte_idx: usize,
     ) {
-        let mut buf_end = buf_start + 1;
+        // we don't use first_char because numbers in utf are always 1 byte so we don't need a variable to check the length
+
+        let mut last_char_byte_idx = first_char_byte_idx + 1;
         let mut dots = 0;
+        let first_char_pos = state.char;
 
         state.read_mode = ReadMode::ReadNumberLiteral;
 
@@ -261,20 +293,30 @@ impl File {
                 break;
             }
 
-            buf_end += 1;
-            state.iter.next();
+            last_char_byte_idx += 1;
+            state.iter.next().unwrap();
         }
 
-        Self::push_token(source, tokens, state, buf_start, buf_end, None);
+        Self::push_token(
+            source,
+            tokens,
+            state,
+            first_char_byte_idx,
+            last_char_byte_idx,
+            first_char_pos,
+            None
+        );
     }
 
-    fn parse_operator<'a>(
+    fn parse_operator(
         source: &str,
         tokens: &mut Vec<Token>,
         state: &mut ReadingState,
-        buf_start: usize
+        first_char_byte_idx: usize
     ) {
-        let mut buf_end = buf_start + 1;
+        let mut last_char_byte_idx = first_char_byte_idx + 1;
+        let first_char_pos = state.char;
+
         state.read_mode = ReadMode::ReadOperator;
 
         let double_char_operators = [
@@ -288,14 +330,22 @@ impl File {
         while let Some(&(_, _next)) = state.iter.peek() {
             state.char += 1;
 
-            if !double_char_operators.contains(&&source[buf_start..buf_end + 1]) {
+            if !double_char_operators.contains(&&source[first_char_byte_idx..last_char_byte_idx + 1]) {
                 break;
             }
 
-            buf_end += 1;
-            state.iter.next();
+            last_char_byte_idx += 1;
+            state.iter.next().unwrap();
         }
 
-        Self::push_token(source, tokens, state, buf_start, buf_end, None);
+        Self::push_token(
+            source,
+            tokens,
+            state,
+            first_char_byte_idx,
+            last_char_byte_idx,
+            first_char_pos,
+            None
+        );
     }
 }
