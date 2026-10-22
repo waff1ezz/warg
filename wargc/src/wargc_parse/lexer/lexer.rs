@@ -30,13 +30,13 @@ impl File {
         let mut state = ReadingState {
             iter: self.source.char_indices().peekable(),
             read_mode: ReadMode::Unset,
-            line: 1,
-            char: 1,
+            line: 0,
+            char: 0,
         };
 
         while let Some((char_byte_idx, this_char)) = state.iter.next() {
             match this_char {
-                c if c.is_alphabetic() => Self::parse_keyword_or_identifier(
+                c if c.is_alphabetic() || c == '_' || c == '$' => Self::parse_keyword_or_identifier(
                     &self.source, &mut tokens, &mut state, char_byte_idx, this_char
                 ),
 
@@ -97,12 +97,17 @@ impl File {
         let token_chars = &source[first_char_byte_idx..last_char_byte_idx];
         let token = match state.read_mode {
             ReadMode::ReadIdentifierOrKeyword => match token_chars {
+                "fn" => Token::new(TokenKind::Fn, state.line, first_char_pos, span),
+                "let" => Token::new(TokenKind::Let, state.line, first_char_pos, span),
+                "const" => Token::new(TokenKind::Const, state.line, first_char_pos, span),
                 "true" => Token::new(TokenKind::True, state.line, first_char_pos, span),
                 "false" => Token::new(TokenKind::False, state.line, first_char_pos, span),
                 _ => Token::new(TokenKind::Identifier, state.line, first_char_pos, span),
             }
 
             ReadMode::ReadOperator => match token_chars {
+                "," => Token::new(TokenKind::Comma, state.line, first_char_pos, span),
+                "." => Token::new(TokenKind::Dot, state.line, first_char_pos, span),
                 "+" => Token::new(TokenKind::Plus, state.line, first_char_pos, span),
                 "-" => Token::new(TokenKind::Minus, state.line, first_char_pos, span),
                 "*" => Token::new(TokenKind::Star, state.line, first_char_pos, span),
@@ -116,7 +121,13 @@ impl File {
                 ">=" => Token::new(TokenKind::GreaterThanEquals, state.line, first_char_pos, span),
                 "(" => Token::new(TokenKind::LeftParentheses, state.line, first_char_pos, span),
                 ")" => Token::new(TokenKind::RightParentheses, state.line, first_char_pos, span),
+                "[" => Token::new(TokenKind::LeftBracket, state.line, first_char_pos, span),
+                "]" => Token::new(TokenKind::RightBracket, state.line, first_char_pos, span),
                 ";" => Token::new(TokenKind::Semicolon, state.line, first_char_pos, span),
+                "!" => Token::new(TokenKind::Bang, state.line, first_char_pos, span),
+                "&" => Token::new(TokenKind::Ampersand, state.line, first_char_pos, span),
+                "&&" => Token::new(TokenKind::DoubleAmpersand, state.line, first_char_pos, span),
+                "||" => Token::new(TokenKind::DoublePipe, state.line, first_char_pos, span),
                 _ => Token::new(TokenKind::UnknownToken, state.line, first_char_pos, span)
             }
 
@@ -151,9 +162,10 @@ impl File {
         let first_char_pos = state.char;
 
         state.read_mode = ReadMode::ReadIdentifierOrKeyword;
+        state.char += 1;
 
         while let Some(&(_, char)) = state.iter.peek() {
-            if !char.is_alphanumeric() {
+            if !char.is_alphanumeric() && char != '_' && char != '$' {
                 break;
             }
 
@@ -188,6 +200,7 @@ impl File {
         let first_char_pos = state.char;
 
         state.read_mode = ReadMode::ReadStringLiteral;
+        state.char += 1;
 
         let mut last_consumed = '"';
         while let Some((_, char)) = state.iter.next() {
@@ -267,10 +280,10 @@ impl File {
         let first_char_pos = state.char;
 
         state.read_mode = ReadMode::ReadNumberLiteral;
+        state.char += 1;
 
         while let Some(&(idx, next)) = state.iter.peek() {
             let this = source.chars().nth(idx - 1).unwrap();
-            state.char += 1;
 
             if this == '.' {
                 dots += 1;
@@ -293,6 +306,7 @@ impl File {
                 break;
             }
 
+            state.char += 1;
             last_char_byte_idx += 1;
             state.iter.next().unwrap();
         }
@@ -318,22 +332,24 @@ impl File {
         let first_char_pos = state.char;
 
         state.read_mode = ReadMode::ReadOperator;
+        state.char += 1;
 
         let double_char_operators = [
             "==",
             "!=",
             "<=",
             ">=",
-            "=>"
+            "=>",
+            "&&",
+            "||"
         ];
 
         while let Some(&(_, _next)) = state.iter.peek() {
-            state.char += 1;
-
             if !double_char_operators.contains(&&source[first_char_byte_idx..last_char_byte_idx + 1]) {
                 break;
             }
 
+            state.char += 1;
             last_char_byte_idx += 1;
             state.iter.next().unwrap();
         }
