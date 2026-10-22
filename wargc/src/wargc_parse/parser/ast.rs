@@ -10,7 +10,7 @@ impl File {
             .into_iter()
             .peekable();
 
-        let expr = Expr::parse(self, &mut iter, 1);
+        let expr = Expr::parse(self, &mut iter, 1, None);
 
         dbg!(expr);
     }
