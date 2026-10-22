@@ -4,6 +4,7 @@ use wargc_driver::{Project, Flags};
 mod wargc_errors;
 mod wargc_driver;
 mod wargc_parse;
+mod wargc_util;
 
 fn main() {
     let project = Project::resolve()

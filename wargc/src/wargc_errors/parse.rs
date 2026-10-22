@@ -18,8 +18,8 @@ pub enum ParseErrorKind<'src> {
     UnknownToken(&'src Token),
     UnexpectedToken(&'src Token),
     ExpectedToken(&'src str),
-    UnfinishedExpression,
 }
+
 impl<'src> Error for ParseError<'src> {
     fn throw(&self) -> ! {
         let err_line_content: String = self.src
@@ -52,12 +52,8 @@ impl<'src> Error for ParseError<'src> {
             },
 
             ParseErrorKind::ExpectedToken(str) => {
-                format!("{}: expected '{}'", error_label(), str)
+                format!("{}: expected token: '{}'", error_label(), str)
             },
-
-            ParseErrorKind::UnfinishedExpression => {
-                format!("{}: unfinished expression", error_label())
-            }
         };
 
         eprintln!("{msg}");

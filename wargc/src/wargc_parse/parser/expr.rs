@@ -4,9 +4,13 @@ use crate::wargc_driver::File;
 use crate::wargc_errors::error::Error;
 use crate::wargc_parse::lexer::{Token, TokenKind};
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
+use crate::wargc_util::Position;
+
+// todo!(check line validity)
 
 #[derive(Debug)]
 pub enum Expr {
+    Identifier(Token),
     NumberLiteral(Token),
     StringLiteral(Token),
 
@@ -36,7 +40,7 @@ enum ParserPosition {
 
 impl Expr {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, min_pr: usize) -> Expr {
-        let mut left: Expr = Self::parse_operand(file, iter, None);
+        let mut left: Expr = Self::parse_left_operand(file, iter);
 
         while let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::Semicolon) {
             if matches!(token.kind, TokenKind::RightParentheses) {
@@ -64,36 +68,17 @@ impl Expr {
         left
     }
 
-    fn parse_operand(file: &File, iter: &mut Peekable<IntoIter<Token>>, prev: Option<&Token>) -> Expr {
-
-        /**
-        * This is the position of a missing expression continuation.
-        * We add 1 char because it's supposed to print the error pointing right after the given token.
-        */
-        fn missing_token_pos(file: &File, prev: Option<&Token>) -> (usize, usize) {
-            let char = match prev {
-                Some(t) => t.char + t.original_slice(&file.source).chars().count() + 1,
-                None => 1
-            };
-
-            let line = match prev {
-                Some(t) => t.line,
-                None => 1
-            };
-
-            (line, char)
-        }
-
+    fn parse_left_operand(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> Expr {
         if let None = iter.peek() {
-            let pos = missing_token_pos(file, prev);
+            let pos = file.eof_pos();
 
             let err = ParseError {
                 src: &file.source,
                 file_path: file.path.clone(),
-                line: pos.0,
-                char: pos.1,
+                line: pos.line,
+                char: pos.char,
                 length: 1,
-                kind: ParseErrorKind::UnfinishedExpression,
+                kind: ParseErrorKind::ExpectedToken(")"),
             };
 
             err.throw();
@@ -110,6 +95,10 @@ impl Expr {
                 Expr::StringLiteral(token)
             }
 
+            TokenKind::Identifier => {
+                Expr::Identifier(token)
+            }
+
             TokenKind::Minus => {
                 let pr = Self::precedence(OpType::Prefix(&token.kind));
 
@@ -121,20 +110,26 @@ impl Expr {
 
             TokenKind::LeftParentheses => {
                 let expr = Self::parse(file, iter, 1);
-                let maybe_right_paren = iter.next();
 
-                if let Some(t) = maybe_right_paren && matches!(t.kind, TokenKind::RightParentheses) {
+                if let Some(t) = iter.peek() && matches!(t.kind, TokenKind::RightParentheses) {
+                    iter.next();
                     expr
                 } else {
-                    let pos = missing_token_pos(file, Some(&token));
+                    let pos: Position = match iter.peek() {
+                        Some(_) => {
+                            token.pos
+                        },
+
+                        None => file.eof_pos()
+                    };
 
                     let err = ParseError {
                         src: &file.source,
                         file_path: file.path.clone(),
-                        line: pos.0,
-                        char: pos.1,
+                        line: pos.line,
+                        char: pos.char,
                         length: 1,
-                        kind: ParseErrorKind::UnfinishedExpression,
+                        kind: ParseErrorKind::ExpectedToken(")"),
                     };
 
                     err.throw();
@@ -145,8 +140,8 @@ impl Expr {
                 let err = ParseError {
                     src: &file.source,
                     file_path: file.path.clone(),
-                    line: token.line,
-                    char: token.char,
+                    line: token.pos.line,
+                    char: token.pos.char,
                     length: token.original_slice(&file.source).chars().count(),
                     kind: ParseErrorKind::UnexpectedToken(&token),
                 };
