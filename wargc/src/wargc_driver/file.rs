@@ -14,8 +14,8 @@ impl File {
             let char_idx = content.chars().count();
 
             return Position {
-                line: line_idx + 1,
-                char: char_idx + 1
+                line: line_idx,
+                char: char_idx
             };
         }
 
