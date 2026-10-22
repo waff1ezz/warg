@@ -6,8 +6,6 @@ use crate::wargc_parse::lexer::{Token, TokenKind};
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
 use crate::wargc_util::Position;
 
-// todo!(check line validity)
-
 #[derive(Debug)]
 pub enum Expr {
     Identifier(Token),
@@ -23,31 +21,73 @@ pub enum Expr {
     Unary {
         operand: Box<Expr>,
         operator: Token
+    },
+
+    FunctionCall {
+        callee: Box<Expr>,
+        args: Vec<Expr>,
+    },
+
+    Index {
+        base: Box<Expr>,
+        index: Box<Expr>,
+    },
+
+    Property {
+        base: Box<Expr>,
+        prop_name: Box<Expr>
     }
 }
 
 enum OpType<'a> {
-    Prefix(&'a TokenKind),
-    Postfix(&'a TokenKind),
-    Infix(&'a TokenKind)
-}
-
-enum ParserPosition {
-    LeftOperand,
-    RightOperand,
-    InfixOperator,
+    Prefix(&'a Token),
+    Infix(&'a Token)
 }
 
 impl Expr {
-    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, min_pr: usize) -> Expr {
-        let mut left: Expr = Self::parse_left_operand(file, iter);
+    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, min_pr: usize, left: Option<Expr>) -> Expr {
+        /*
+        *   Explanation for future me:
+        *
+        *   We unformtunately can't solve this in a normal way (put postfix parsing inside the loop)
+        *   because then rust screams about borrowing a mutable reference while another is still in use
+        *   (token is referenced, not owned, because we use 'peek')
+        *   We can't use 'next' to claim the ownership because that basically breaks the whole parser and would make it
+        *   irrationally more complicated
+        */
 
-        while let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::Semicolon) {
-            if matches!(token.kind, TokenKind::RightParentheses) {
+        let mut left: Expr = match left {
+            Some(expr) => expr,
+            None => Self::parse_left_operand(file, iter)
+        };
+
+        if let Some(token) = iter.peek() {
+            match token.kind {
+                TokenKind::LeftParentheses => {
+                    left = Self::parse_fn_call(file, iter, left);
+                    return Self::parse(file, iter, min_pr, Some(left))
+                }
+
+                TokenKind::LeftBracket => {
+                    left = Self::parse_index(file, iter, left);
+                    return Self::parse(file, iter, min_pr, Some(left))
+                }
+
+                TokenKind::Dot => {
+                    left = Self::parse_property_access(file, iter, left);
+                    return Self::parse(file, iter, min_pr, Some(left))
+                }
+
+                _ => {}
+            };
+        }
+
+        while let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::Semicolon | TokenKind::Comma) {
+            if matches!(token.kind, TokenKind::RightParentheses | TokenKind::RightBracket) {
                 return left;
             }
 
-            let op_pr = Self::precedence(OpType::Infix(&token.kind));
+            let op_pr = Self::precedence(OpType::Infix(&token), file);
 
             if op_pr >= min_pr {
                 // unwrap because we're sure it's Some (otherwise the program wouldn't enter this iteration)
@@ -55,7 +95,7 @@ impl Expr {
 
                 left = Expr::Binary {
                     left: Box::from(left),
-                    right: Box::from(Self::parse(file, iter, op_pr + 1)),
+                    right: Box::from(Self::parse(file, iter, op_pr + 1, None)),
                     operator: owned_token
                 }
             }
@@ -68,6 +108,121 @@ impl Expr {
         left
     }
 
+    fn parse_fn_call(file: &File, iter: &mut Peekable<IntoIter<Token>>, callee: Expr) -> Expr {
+        let mut args: Vec<Expr> = vec![];
+
+        iter.next();
+
+        loop {
+            if let Some(next) = iter.peek() && matches!(next.kind, TokenKind::RightParentheses) {
+                iter.next();
+                break;
+            }
+
+            args.push(
+                Self::parse(file, iter, 1, None)
+            );
+
+            match iter.next() {
+                Some(trailing_token) => {
+                    match trailing_token.kind {
+                        TokenKind::RightParentheses => {
+                            return Expr::FunctionCall {
+                                callee: Box::new(callee),
+                                args,
+                            }
+                        }
+
+                        TokenKind::Comma => {}
+
+                        _ => {
+                            let err = ParseError {
+                                src: &file.source,
+                                file_path: file.path.clone(),
+                                line: trailing_token.pos.line,
+                                char: trailing_token.pos.char,
+                                length: trailing_token.original_slice(&file.source).chars().count(),
+                                kind: ParseErrorKind::UnexpectedToken(&trailing_token),
+                            };
+
+                            err.throw();
+                        }
+                    }
+                }
+
+                None => {
+                    let pos = file.eof_pos();
+                    let err = ParseError {
+                        src: &file.source,
+                        file_path: file.path.clone(),
+                        line: pos.line,
+                        char: pos.char,
+                        length: 1,
+                        kind: ParseErrorKind::ExpectedToken(")"),
+                    };
+
+                    err.throw();
+                }
+            }
+        }
+
+        Expr::FunctionCall {
+            callee: Box::new(callee),
+            args,
+        }
+    }
+
+    fn parse_property_access(file: &File, iter: &mut Peekable<IntoIter<Token>>, left: Expr) -> Expr {
+        unreachable!()
+        // todo!()
+    }
+
+    fn parse_index(file: &File, iter: &mut Peekable<IntoIter<Token>>, base: Expr) -> Expr {
+        iter.next();
+
+        let index = Self::parse(file, iter, 1, None);
+
+        match iter.next() {
+            Some(trailing_token) => {
+                match trailing_token.kind {
+                    TokenKind::RightBracket => {
+                        Expr::Index {
+                            base: Box::new(base),
+                            index: Box::new(index),
+                        }
+                    }
+
+                    _ => {
+                        let err = ParseError {
+                            src: &file.source,
+                            file_path: file.path.clone(),
+                            line: trailing_token.pos.line,
+                            char: trailing_token.pos.char,
+                            length: trailing_token.original_slice(&file.source).chars().count(),
+                            kind: ParseErrorKind::UnexpectedToken(&trailing_token),
+                        };
+
+                        err.throw();
+                    }
+                }
+            }
+
+            None => {
+                let pos = file.eof_pos();
+                let err = ParseError {
+                    src: &file.source,
+                    file_path: file.path.clone(),
+                    line: pos.line,
+                    char: pos.char,
+                    length: 1,
+                    kind: ParseErrorKind::ExpectedToken("]"),
+                };
+
+                err.throw();
+            }
+        }
+    }
+
     fn parse_left_operand(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> Expr {
         if let None = iter.peek() {
             let pos = file.eof_pos();
@@ -78,7 +233,7 @@ impl Expr {
                 line: pos.line,
                 char: pos.char,
                 length: 1,
-                kind: ParseErrorKind::ExpectedToken(")"),
+                kind: ParseErrorKind::IncompleteExpression,
             };
 
             err.throw();
@@ -99,17 +254,20 @@ impl Expr {
                 Expr::Identifier(token)
             }
 
-            TokenKind::Minus => {
-                let pr = Self::precedence(OpType::Prefix(&token.kind));
+            TokenKind::Minus |
+            TokenKind::Bang |
+            TokenKind::Ampersand |
+            TokenKind::Star => {
+                let pr = Self::precedence(OpType::Prefix(&token), file);
 
                 Expr::Unary {
-                    operand: Box::from(Self::parse(file, iter, pr)),
+                    operand: Box::from(Self::parse(file, iter, pr, None)),
                     operator: token
                 }
             }
 
             TokenKind::LeftParentheses => {
-                let expr = Self::parse(file, iter, 1);
+                let expr = Self::parse(file, iter, 1, None);
 
                 if let Some(t) = iter.peek() && matches!(t.kind, TokenKind::RightParentheses) {
                     iter.next();
@@ -151,31 +309,58 @@ impl Expr {
         }
     }
 
-    fn precedence(op_type: OpType) -> usize {
-        match op_type {
-            OpType::Prefix(op) => match op {
+    fn precedence(operator: OpType, file: &File) -> usize {
+        match operator {
+            OpType::Prefix(op) => match op.kind {
                 TokenKind::Minus => 10,
+                TokenKind::Bang => 10,
+                TokenKind::Ampersand => 10,
+                TokenKind::Star => 10,
                 _ => unreachable!(),
             }
 
-            OpType::Infix(op) => match op {
-                TokenKind::Equals => 1,
-                TokenKind::DoubleEquals => 2,
-                TokenKind::NotEquals => 2,
-                TokenKind::LessThan => 2,
-                TokenKind::GreaterThan => 2,
-                TokenKind::LessThanEquals => 2,
-                TokenKind::GreaterThanEquals => 2,
-                TokenKind::Plus => 3,
-                TokenKind::Minus => 3,
-                TokenKind::Star => 4,
-                TokenKind::Slash => 4,
-                _ => unreachable!(),
-            }
+            OpType::Infix(op) => match op.kind {
+                TokenKind::DoubleAmpersand => 1,
+                TokenKind::DoublePipe => 1,
+                TokenKind::Equals => 2,
+                TokenKind::DoubleEquals => 3,
+                TokenKind::NotEquals => 3,
+                TokenKind::LessThan => 3,
+                TokenKind::GreaterThan => 3,
+                TokenKind::LessThanEquals => 3,
+                TokenKind::GreaterThanEquals => 3,
+                TokenKind::Plus => 4,
+                TokenKind::Minus => 4,
+                TokenKind::Star => 5,
+                TokenKind::Slash => 5,
 
-            OpType::Postfix(op) => match op {
-                TokenKind::LeftParentheses => 15,
-                _ => unreachable!()
+                TokenKind::Identifier |
+                TokenKind::Number |
+                TokenKind::String(_) => {
+                    let err = ParseError {
+                        src: &file.source,
+                        file_path: file.path.clone(),
+                        line: op.pos.line,
+                        char: op.pos.char,
+                        length: op.original_slice(&file.source).chars().count(),
+                        kind: ParseErrorKind::ExpectedOperator,
+                    };
+
+                    err.throw();
+                }
+
+                _ => {
+                    let err = ParseError {
+                        src: &file.source,
+                        file_path: file.path.clone(),
+                        line: op.pos.line,
+                        char: op.pos.char,
+                        length: op.original_slice(&file.source).chars().count(),
+                        kind: ParseErrorKind::UnexpectedToken(&op),
+                    };
+
+                    err.throw();
+                }
             }
         }
     }
