@@ -70,8 +70,8 @@ impl File {
                 ParseError {
                     src: &self.source,
                     file_path: self.path.clone(),
-                    line: t.line,
-                    char: t.char,
+                    line: t.pos.line,
+                    char: t.pos.char,
                     length: t.original_slice(&self.source).chars().count(),
                     kind: ParseErrorKind::UnknownToken(t),
                 }
