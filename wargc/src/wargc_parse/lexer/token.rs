@@ -1,4 +1,3 @@
-use std::iter::{Enumerate, Peekable};
 use std::ops::Range;
 use crate::wargc_util::Position;
 
@@ -29,8 +28,17 @@ pub enum TokenKind {
     Identifier,
     String(String),
 
+    Fn,
+    Let,
+    Const,
+
+    Int,
+    Float,
+    Bool,
+
     True,
     False,
+    Null,
 
     Plus,
     Minus,
@@ -45,7 +53,15 @@ pub enum TokenKind {
     GreaterThanEquals,
     LeftParentheses,
     RightParentheses,
+    LeftBracket,
+    RightBracket,
     Semicolon,
+    Comma,
+    Bang,
+    Dot,
+    Ampersand,
+    DoubleAmpersand,
+    DoublePipe,
 
     UnknownToken
 }
