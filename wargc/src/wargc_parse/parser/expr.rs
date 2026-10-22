@@ -4,9 +4,12 @@ use crate::wargc_driver::File;
 use crate::wargc_errors::error::Error;
 use crate::wargc_parse::lexer::{Token, TokenKind};
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
+use crate::wargc_util::Position;
+// todo!(check line validity)
 
 #[derive(Debug)]
 pub enum Expr {
+    Identifier(Token),
     NumberLiteral(Token),
     StringLiteral(Token),
 
@@ -70,7 +73,8 @@ impl Expr {
         * This is the position of a missing expression continuation.
         * We add 1 char because it's supposed to print the error pointing right after the given token.
         */
-        fn missing_token_pos(file: &File, prev: Option<&Token>) -> (usize, usize) {
+
+        fn missing_token_pos(file: &File, prev: Option<&Token>) -> Position {
             let char = match prev {
                 Some(t) => t.char + t.original_slice(&file.source).chars().count() + 1,
                 None => 1
@@ -81,7 +85,7 @@ impl Expr {
                 None => 1
             };
 
-            (line, char)
+            Position { line, char }
         }
 
         if let None = iter.peek() {
@@ -90,8 +94,8 @@ impl Expr {
             let err = ParseError {
                 src: &file.source,
                 file_path: file.path.clone(),
-                line: pos.0,
-                char: pos.1,
+                line: pos.line,
+                char: pos.char,
                 length: 1,
                 kind: ParseErrorKind::UnfinishedExpression,
             };
@@ -110,6 +114,10 @@ impl Expr {
                 Expr::StringLiteral(token)
             }
 
+            TokenKind::Identifier => {
+                Expr::Identifier(token)
+            }
+
             TokenKind::Minus => {
                 let pr = Self::precedence(OpType::Prefix(&token.kind));
 
@@ -121,18 +129,27 @@ impl Expr {
 
             TokenKind::LeftParentheses => {
                 let expr = Self::parse(file, iter, 1);
-                let maybe_right_paren = iter.next();
 
-                if let Some(t) = maybe_right_paren && matches!(t.kind, TokenKind::RightParentheses) {
+                if let Some(t) = iter.peek() && matches!(t.kind, TokenKind::RightParentheses) {
+                    iter.next();
                     expr
                 } else {
-                    let pos = missing_token_pos(file, Some(&token));
+                    let pos: Position = match iter.peek() {
+                        Some(t) => {
+                            Position {
+                                line: t.line,
+                                char: t.char
+                            }
+                        },
+
+                        None => file.eof_pos()
+                    };
 
                     let err = ParseError {
                         src: &file.source,
                         file_path: file.path.clone(),
-                        line: pos.0,
-                        char: pos.1,
+                        line: pos.line,
+                        char: pos.char,
                         length: 1,
                         kind: ParseErrorKind::UnfinishedExpression,
                     };
