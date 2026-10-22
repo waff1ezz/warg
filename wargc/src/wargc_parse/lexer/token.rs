@@ -1,16 +1,21 @@
+use std::iter::{Enumerate, Peekable};
 use std::ops::Range;
+use crate::wargc_util::Position;
 
 #[derive(Debug)]
 pub struct Token {
     pub kind: TokenKind,
-    pub line: usize,
-    pub char: usize,
+    pub pos: Position,
     pub span: Range<usize>,
 }
 
 impl Token {
     pub fn new(kind: TokenKind, line: usize, char: usize, span: Range<usize>) -> Self {
-        Token { kind, line, char, span }
+        Token {
+            pos: Position { line, char },
+            kind,
+            span
+        }
     }
 
     pub fn original_slice<'src>(&self, source: &'src str) -> &'src str {
