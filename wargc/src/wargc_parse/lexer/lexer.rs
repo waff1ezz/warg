@@ -124,6 +124,7 @@ impl File {
                 "[" => Token::new(TokenKind::LeftBracket, state.line, first_char_pos, span),
                 "]" => Token::new(TokenKind::RightBracket, state.line, first_char_pos, span),
                 ";" => Token::new(TokenKind::Semicolon, state.line, first_char_pos, span),
+                ":" => Token::new(TokenKind::Colon, state.line, first_char_pos, span),
                 "!" => Token::new(TokenKind::Bang, state.line, first_char_pos, span),
                 "&" => Token::new(TokenKind::Ampersand, state.line, first_char_pos, span),
                 "&&" => Token::new(TokenKind::DoubleAmpersand, state.line, first_char_pos, span),
