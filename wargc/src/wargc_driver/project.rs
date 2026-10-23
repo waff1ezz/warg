@@ -32,7 +32,7 @@ impl Project {
         };
 
         let tokens = file.generate_tokens();
-        file.ast(tokens);
+        file.gen_ast(tokens);
 
 
         Ok(())
