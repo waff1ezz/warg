@@ -1,4 +1,5 @@
 mod expr;
-mod ast;
+mod stmt;
 
 pub use expr::Expr;
+pub use stmt::*;
