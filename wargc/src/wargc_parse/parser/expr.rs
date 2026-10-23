@@ -172,9 +172,15 @@ impl Expr {
         }
     }
 
-    fn parse_property_access(file: &File, iter: &mut Peekable<IntoIter<Token>>, left: Expr) -> Expr {
-        unreachable!()
-        // todo!()
+    fn parse_property_access(file: &File, iter: &mut Peekable<IntoIter<Token>>, base: Expr) -> Expr {
+        let dot = iter.next();
+
+        Expr::Property {
+            base: Box::new(base),
+            prop_name: Box::new(
+                Self::parse(file, iter, Self::precedence(OpType::Infix(&dot.unwrap()), file), None)
+            )
+        }
     }
 
     fn parse_index(file: &File, iter: &mut Peekable<IntoIter<Token>>, base: Expr) -> Expr {
@@ -333,6 +339,7 @@ impl Expr {
                 TokenKind::Minus => 4,
                 TokenKind::Star => 5,
                 TokenKind::Slash => 5,
+                TokenKind::Dot => 10,
 
                 TokenKind::Identifier |
                 TokenKind::Number |
