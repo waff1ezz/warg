@@ -13,23 +13,32 @@ pub fn expect_token(file: &File, iter: &mut Peekable<IntoIter<Token>>, expected:
             }
 
             else {
-                throw_expected_token(file, err_msg);
+                throw_expected_token(file, Some(token), err_msg);
             }
         }
 
         None => {
-            throw_expected_token(file, err_msg);
+            throw_expected_token(file, None, err_msg);
         }
     }
 
-    fn throw_expected_token(file: &File, msg: &str) -> ! {
-        let pos = file.eof_pos();
+    fn throw_expected_token(file: &File, token: Option<Token>, msg: &str) -> ! {
+        let pos = match &token {
+            Some(t) => t.pos.clone(),
+            None => file.eof_pos()
+        };
+
+        let len = match token {
+            Some(t) => t.original_slice(&file.source).chars().count(),
+            None => 1
+        };
+
         let err = ParseError {
             src: &file.source,
             file_path: file.path.clone(),
             line: pos.line,
             char: pos.char,
-            length: 1,
+            length: len,
             kind: ParseErrorKind::ExpectedToken(msg),
         };
 
