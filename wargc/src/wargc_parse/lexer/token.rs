@@ -32,13 +32,8 @@ pub enum TokenKind {
     Let,
     Const,
 
-    Int,
-    Float,
-    Bool,
-
     True,
     False,
-    Null,
 
     Plus,
     Minus,
@@ -57,6 +52,7 @@ pub enum TokenKind {
     RightBracket,
     Semicolon,
     Comma,
+    Colon,
     Bang,
     Dot,
     Ampersand,
