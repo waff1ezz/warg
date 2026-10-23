@@ -53,7 +53,7 @@ impl File {
                 ),
 
                 '\n' => {
-                    state.char = 1;
+                    state.char = 0;
                     state.line += 1;
                 }
 
@@ -123,6 +123,8 @@ impl File {
                 ")" => Token::new(TokenKind::RightParentheses, state.line, first_char_pos, span),
                 "[" => Token::new(TokenKind::LeftBracket, state.line, first_char_pos, span),
                 "]" => Token::new(TokenKind::RightBracket, state.line, first_char_pos, span),
+                "{" => Token::new(TokenKind::LeftBrace, state.line, first_char_pos, span),
+                "}" => Token::new(TokenKind::RightBrace, state.line, first_char_pos, span),
                 ";" => Token::new(TokenKind::Semicolon, state.line, first_char_pos, span),
                 ":" => Token::new(TokenKind::Colon, state.line, first_char_pos, span),
                 "!" => Token::new(TokenKind::Bang, state.line, first_char_pos, span),
