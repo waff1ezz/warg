@@ -5,13 +5,13 @@ use crate::wargc_parse::lexer::Token;
 use crate::wargc_parse::parser::Expr;
 
 impl File {
-    pub fn ast(&self, tokens: Vec<Token>) {
+    pub fn gen_ast(&self, tokens: Vec<Token>) {
         let mut iter = tokens
             .into_iter()
             .peekable();
 
-        let expr = Expr::parse(self, &mut iter, 1, None);
+        while let Some(token) = iter.peek() {
 
-        dbg!(expr);
+        }
     }
 }
