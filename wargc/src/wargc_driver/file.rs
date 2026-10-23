@@ -1,6 +1,4 @@
 use std::path::PathBuf;
-use crate::wargc_parse::lexer::Token;
-use crate::wargc_parse::parser::Expr;
 use crate::wargc_util::Position;
 
 pub struct File {
