@@ -2,42 +2,10 @@ use std::iter::Peekable;
 use std::vec::IntoIter;
 use crate::wargc_driver::File;
 use crate::wargc_errors::error::Error;
-use crate::wargc_parse::lexer::{Token, TokenKind};
+use crate::wargc_ast::lexer::{Token, TokenKind};
+use crate::wargc_ast::node::Expr;
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
 use crate::wargc_util::Position;
-
-#[derive(Debug)]
-pub enum Expr {
-    Identifier(Token),
-    NumberLiteral(Token),
-    StringLiteral(Token),
-
-    Binary {
-        left: Box<Expr>,
-        right: Box<Expr>,
-        operator: Token
-    },
-
-    Unary {
-        operand: Box<Expr>,
-        operator: Token
-    },
-
-    FunctionCall {
-        callee: Box<Expr>,
-        args: Vec<Expr>,
-    },
-
-    Index {
-        base: Box<Expr>,
-        index: Box<Expr>,
-    },
-
-    Property {
-        base: Box<Expr>,
-        prop_name: Box<Expr>
-    }
-}
 
 enum OpType<'a> {
     Prefix(&'a Token),
@@ -63,9 +31,13 @@ impl Expr {
 
         if let Some(token) = iter.peek() {
             match token.kind {
+                TokenKind::LeftBrace => {
+                    return left;
+                }
+
                 TokenKind::LeftParentheses => {
                     left = Self::parse_fn_call(file, iter, left);
-                    return Self::parse(file, iter, min_pr, Some(left))
+                    return Self::parse(file, iter, min_pr, Some(left));
                 }
 
                 TokenKind::LeftBracket => {
@@ -82,9 +54,16 @@ impl Expr {
             };
         }
 
-        while let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::Semicolon | TokenKind::Comma) {
-            if matches!(token.kind, TokenKind::RightParentheses | TokenKind::RightBracket) {
-                return left;
+        while let Some(token) = iter.peek() {
+            match token.kind {
+                TokenKind::RightParentheses |
+                TokenKind::RightBracket |
+                TokenKind::Semicolon |
+                TokenKind::Comma => {
+                    return left;
+                }
+
+                _ => {}
             }
 
             let op_pr = Self::precedence(OpType::Infix(&token), file);
@@ -111,7 +90,7 @@ impl Expr {
     fn parse_fn_call(file: &File, iter: &mut Peekable<IntoIter<Token>>, callee: Expr) -> Expr {
         let mut args: Vec<Expr> = vec![];
 
-        iter.next();
+        iter.next(); // function name
 
         loop {
             if let Some(next) = iter.peek() && matches!(next.kind, TokenKind::RightParentheses) {
@@ -186,7 +165,11 @@ impl Expr {
     fn parse_index(file: &File, iter: &mut Peekable<IntoIter<Token>>, base: Expr) -> Expr {
         iter.next();
 
-        let index = Self::parse(file, iter, 1, None);
+        let index = if let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::RightBracket) {
+            Some(Self::parse(file, iter, 1, None))
+        } else {
+            None
+        };
 
         match iter.next() {
             Some(trailing_token) => {
@@ -194,7 +177,10 @@ impl Expr {
                     TokenKind::RightBracket => {
                         Expr::Index {
                             base: Box::new(base),
-                            index: Box::new(index),
+                            index: match index {
+                                Some(i) => Some(Box::new(i)),
+                                None => None,
+                            },
                         }
                     }
 
@@ -322,23 +308,37 @@ impl Expr {
                 TokenKind::Bang => 10,
                 TokenKind::Ampersand => 10,
                 TokenKind::Star => 10,
+                TokenKind::Tilde => 10,
                 _ => unreachable!(),
             }
 
             OpType::Infix(op) => match op.kind {
-                TokenKind::DoubleAmpersand => 1,
-                TokenKind::DoublePipe => 1,
-                TokenKind::Equals => 2,
-                TokenKind::DoubleEquals => 3,
-                TokenKind::NotEquals => 3,
-                TokenKind::LessThan => 3,
-                TokenKind::GreaterThan => 3,
-                TokenKind::LessThanEquals => 3,
-                TokenKind::GreaterThanEquals => 3,
-                TokenKind::Plus => 4,
-                TokenKind::Minus => 4,
-                TokenKind::Star => 5,
-                TokenKind::Slash => 5,
+                TokenKind::Equals => 1,
+                TokenKind::PlusEquals => 1,
+                TokenKind::MinusEquals => 1,
+                TokenKind::StarEquals => 1,
+                TokenKind::SlashEquals => 1,
+                TokenKind::CaretEquals => 1,
+                TokenKind::AmpersandEquals => 1,
+                TokenKind::PipeEquals => 1,
+                TokenKind::TildeEquals => 1,
+                TokenKind::PercentEquals=> 1,
+                TokenKind::DoublePipe => 2,
+                TokenKind::DoubleAmpersand => 3,
+                TokenKind::DoubleEquals => 4,
+                TokenKind::NotEquals => 4,
+                TokenKind::LessThan => 4,
+                TokenKind::GreaterThan => 4,
+                TokenKind::LessThanEquals => 4,
+                TokenKind::GreaterThanEquals => 4,
+                TokenKind::Pipe => 5,
+                TokenKind::Caret => 6,
+                TokenKind::Ampersand => 7,
+                TokenKind::Plus => 8,
+                TokenKind::Minus => 8,
+                TokenKind::Star => 9,
+                TokenKind::Slash => 9,
+                TokenKind::Percent => 9,
                 TokenKind::Dot => 10,
 
                 TokenKind::Identifier |
