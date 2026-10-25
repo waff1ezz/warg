@@ -18,7 +18,7 @@ pub struct Project {
 pub const CONFIG_FILE_NAME: &str = "config.wg.json";
 
 impl Project {
-    pub fn build(&self, flags: Vec<Flags>) -> Result<(), DriverError> {
+    pub fn build(&self, _flags: Vec<Flags>) -> Result<(), DriverError> {
         fn verbose_notice(msg: &str) {
             println!("{}: {msg}", "notice".bright_blue().bold());
         }
@@ -26,14 +26,15 @@ impl Project {
         let source = fs::read_to_string(PathBuf::from(&self.dir).join(&self.entry_point))
             .map_err(|err| DriverError::IO(self.entry_point.to_string_lossy().into_owned(), err))?;
 
-        let mut file = File {
+        let file = File {
             path: self.entry_point.clone(),
             source
         };
 
         let tokens = file.generate_tokens();
-        file.gen_ast(tokens);
+        let ast = file.make_ast(tokens);
 
+        dbg!(ast);
 
         Ok(())
     }
