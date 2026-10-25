@@ -3,7 +3,7 @@ use std::vec::IntoIter;
 use crate::wargc_driver::File;
 use crate::wargc_errors::error::Error;
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
-use crate::wargc_parse::lexer::{Token, TokenKind};
+use crate::wargc_ast::lexer::{Token, TokenKind};
 
 pub fn expect_token(file: &File, iter: &mut Peekable<IntoIter<Token>>, expected: TokenKind, err_msg: &str) -> Token {
     match iter.next() {
