@@ -1,7 +1,7 @@
 use std::iter::Peekable;
 use std::path::PathBuf;
 use std::str::CharIndices;
-use crate::wargc_parse::lexer::{Token, TokenKind};
+use crate::wargc_ast::lexer::{Token, TokenKind};
 use crate::wargc_driver::File;
 use crate::wargc_errors::error::Error;
 use crate::wargc_errors::fatal::throw_fatal;
@@ -97,11 +97,22 @@ impl File {
         let token_chars = &source[first_char_byte_idx..last_char_byte_idx];
         let token = match state.read_mode {
             ReadMode::ReadIdentifierOrKeyword => match token_chars {
-                "fn" => Token::new(TokenKind::Fn, state.line, first_char_pos, span),
+                "if" => Token::new(TokenKind::If, state.line, first_char_pos, span),
+                "else" => Token::new(TokenKind::Else, state.line, first_char_pos, span),
+                "return" => Token::new(TokenKind::Return, state.line, first_char_pos, span),
+                "for" => Token::new(TokenKind::For, state.line, first_char_pos, span),
+                "in" => Token::new(TokenKind::In, state.line, first_char_pos, span),
+                "while" => Token::new(TokenKind::While, state.line, first_char_pos, span),
+                "import" => Token::new(TokenKind::Import, state.line, first_char_pos, span),
+                "export" => Token::new(TokenKind::Export, state.line, first_char_pos, span),
+                "from" => Token::new(TokenKind::From, state.line, first_char_pos, span),
+                "struct" => Token::new(TokenKind::Struct, state.line, first_char_pos, span),
+                "interface" => Token::new(TokenKind::Interface, state.line, first_char_pos, span),
+                "implements" => Token::new(TokenKind::Implements, state.line, first_char_pos, span),
+                "func" => Token::new(TokenKind::Func, state.line, first_char_pos, span),
+                "new" => Token::new(TokenKind::New, state.line, first_char_pos, span),
                 "let" => Token::new(TokenKind::Let, state.line, first_char_pos, span),
                 "const" => Token::new(TokenKind::Const, state.line, first_char_pos, span),
-                "true" => Token::new(TokenKind::True, state.line, first_char_pos, span),
-                "false" => Token::new(TokenKind::False, state.line, first_char_pos, span),
                 _ => Token::new(TokenKind::Identifier, state.line, first_char_pos, span),
             }
 
@@ -129,8 +140,23 @@ impl File {
                 ":" => Token::new(TokenKind::Colon, state.line, first_char_pos, span),
                 "!" => Token::new(TokenKind::Bang, state.line, first_char_pos, span),
                 "&" => Token::new(TokenKind::Ampersand, state.line, first_char_pos, span),
+                "|" => Token::new(TokenKind::Pipe, state.line, first_char_pos, span),
+                "%" => Token::new(TokenKind::Percent, state.line, first_char_pos, span),
+                "^" => Token::new(TokenKind::Caret, state.line, first_char_pos, span),
+                "~" => Token::new(TokenKind::Tilde, state.line, first_char_pos, span),
+                "<<" => Token::new(TokenKind::DoubleLessThan, state.line, first_char_pos, span),
+                ">>" => Token::new(TokenKind::DoubleGreaterThan, state.line, first_char_pos, span),
                 "&&" => Token::new(TokenKind::DoubleAmpersand, state.line, first_char_pos, span),
                 "||" => Token::new(TokenKind::DoublePipe, state.line, first_char_pos, span),
+                "+=" => Token::new(TokenKind::PlusEquals, state.line, first_char_pos, span),
+                "-=" => Token::new(TokenKind::MinusEquals, state.line, first_char_pos, span),
+                "*=" => Token::new(TokenKind::StarEquals, state.line, first_char_pos, span),
+                "/=" => Token::new(TokenKind::SlashEquals, state.line, first_char_pos, span),
+                "^=" => Token::new(TokenKind::CaretEquals, state.line, first_char_pos, span),
+                "~=" => Token::new(TokenKind::TildeEquals, state.line, first_char_pos, span),
+                "%=" => Token::new(TokenKind::PercentEquals, state.line, first_char_pos, span),
+                "&=" => Token::new(TokenKind::AmpersandEquals, state.line, first_char_pos, span),
+                "|=" => Token::new(TokenKind::PipeEquals, state.line, first_char_pos, span),
                 _ => Token::new(TokenKind::UnknownToken, state.line, first_char_pos, span)
             }
 
@@ -344,7 +370,14 @@ impl File {
             ">=",
             "=>",
             "&&",
-            "||"
+            "||",
+            "+=",
+            "-=",
+            "*=",
+            "/=",
+            "%=",
+            "^=",
+            "~="
         ];
 
         while let Some(&(_, _next)) = state.iter.peek() {
