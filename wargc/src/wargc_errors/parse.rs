@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use colored::{ColoredString, Colorize};
+use crate::wargc_ast::lexer::Token;
 use crate::wargc_errors::error::Error;
-use crate::wargc_parse::lexer::Token;
 
 pub struct ParseError<'src> {
     pub src: &'src str,
@@ -33,7 +33,7 @@ impl<'src> Error for ParseError<'src> {
         let underline = " ".repeat(self.char + 7) + "-" + &"^".repeat(self.length) + "-";
 
         eprintln!("\n{} ~ {:0>2}:{:0>2}", self.file_path.display(), self.line + 1, self.char + 1);
-        eprintln!("{:0>5} | {err_line_content}", self.line);
+        eprintln!("{:0>5} | {err_line_content}", self.line + 1);
         eprintln!("{}", underline.bright_red());
 
         let msg = match &self.kind {
