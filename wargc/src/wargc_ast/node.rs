@@ -14,7 +14,8 @@ pub enum Node {
     Import(ImportStmt),
     Export(ExportStmt),
     Return(ReturnStmt),
-    Variable(VarDecl)
+    Variable(VarDecl),
+    StaticVariable(StaticVarDecl)
 }
 
 impl Node {
@@ -173,4 +174,11 @@ pub struct VarDecl {
     pub data_type: Option<Expr>,
     pub value: Option<Expr>,
     pub mutable: bool
+}
+
+#[derive(Debug)]
+pub struct StaticVarDecl {
+    pub name: Token,
+    pub data_type: Option<Expr>,
+    pub value: Expr,
 }
