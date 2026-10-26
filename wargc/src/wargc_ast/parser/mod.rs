@@ -8,3 +8,4 @@ pub mod parse_return;
 pub mod parse_struct;
 pub mod parse_variable;
 mod parse_export;
+mod parse_static_variable;
