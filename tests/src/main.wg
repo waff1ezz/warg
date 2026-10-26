@@ -3,4 +3,6 @@ func main(): void {
         something();
         let x = 5 + something(1, i);
     }
+
+    export let i = 0;
 }
