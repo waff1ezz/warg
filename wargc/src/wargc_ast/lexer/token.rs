@@ -44,6 +44,7 @@ pub enum TokenKind {
     Implements,
     In,
     New,
+    Static,
 
     Plus,
     Minus,
