@@ -9,23 +9,29 @@ use crate::wargc_util::expect_token;
 
 impl ExportStmt {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> ExportStmt {
-        expect_token(file, iter, TokenKind::Export, "return");
+        let token = expect_token(file, iter, TokenKind::Export, "export");
 
         let item = Node::parse(file, iter);
         match item {
-            Node::Expression(_) => {}
-            Node::Block(_) => {}
-            Node::For(_) => {}
-            Node::Function(_) => {}
-            Node::If(_) => {}
-            Node::Import(_) => {}
-            Node::Export(_) => {}
-            Node::Return(_) => {}
-            Node::Variable(_) => {}
-        }
+            Node::Function(_) |
+            Node::StaticVariable(_) => {
+                ExportStmt {
+                    item: Box::from(item)
+                }
+            }
 
-        ExportStmt {
-            item: Box::from(item)
+            _ => {
+                let err = ParseError {
+                    src: &file.source,
+                    file_path: file.path.clone(),
+                    line: token.pos.line,
+                    char: token.pos.char,
+                    length: token.original_slice(&file.source).chars().count(),
+                    kind: ParseErrorKind::ExpectedToken(""), // todo
+                };
+
+                err.throw();
+            }
         }
     }
 }
