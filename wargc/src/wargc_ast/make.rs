@@ -1,4 +1,4 @@
-use crate::wargc_ast::lexer::Token;
+use crate::wargc_ast::lexer::{Token, TokenKind};
 use crate::wargc_ast::node::Node;
 use crate::wargc_driver::File;
 
@@ -11,7 +11,14 @@ impl File {
         
         while let Some(_) = iter.peek() {
             nodes.push(
-                Node::parse(&self, &mut iter)
+                Node::parse(&self, &mut iter, Some(vec![
+                    TokenKind::Func,
+                    TokenKind::Struct,
+                    TokenKind::Static,
+                    TokenKind::Interface,
+                    TokenKind::Import,
+                    TokenKind::Export,
+                ]))
             );
         }
         
