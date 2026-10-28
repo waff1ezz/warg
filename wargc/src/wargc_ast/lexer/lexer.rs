@@ -114,6 +114,7 @@ impl File {
                 "let" => Token::new(TokenKind::Let, state.line, first_char_pos, span),
                 "const" => Token::new(TokenKind::Const, state.line, first_char_pos, span),
                 "static" => Token::new(TokenKind::Static, state.line, first_char_pos, span),
+                "typeof" => Token::new(TokenKind::Typeof, state.line, first_char_pos, span),
                 _ => Token::new(TokenKind::Identifier, state.line, first_char_pos, span),
             }
 

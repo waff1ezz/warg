@@ -1,4 +1,5 @@
 use std::ops::Range;
+use crate::wargc_ast::node::Node;
 use crate::wargc_util::Position;
 
 #[derive(Debug)]
@@ -45,6 +46,7 @@ pub enum TokenKind {
     In,
     New,
     Static,
+    Typeof,
 
     Plus,
     Minus,
