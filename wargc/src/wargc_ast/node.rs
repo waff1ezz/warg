@@ -1,8 +1,12 @@
 use std::iter::Peekable;
+use std::mem::discriminant;
+use std::ops::Range;
 use std::vec::IntoIter;
 use crate::wargc_driver::File;
 use crate::wargc_ast::lexer::{Token, TokenKind};
-use crate::wargc_util::expect_token;
+use crate::wargc_errors::error::Error;
+use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
+use crate::wargc_util::{expect_token, Position};
 
 #[derive(Debug)]
 pub enum Node {
@@ -15,12 +19,33 @@ pub enum Node {
     Export(ExportStmt),
     Return(ReturnStmt),
     Variable(VarDecl),
-    StaticVariable(StaticVarDecl)
+    StaticVariable(StaticVarDecl),
+    Structure(StructDecl),
+    Interface(InterfaceDecl),
 }
 
 impl Node {
-    pub(crate) fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> Self {
+    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, allowed_token_kinds: Option<Vec<TokenKind>>) -> Self {
         if let Some(token) = iter.peek() {
+            if let Some(allowed_token_kinds) = allowed_token_kinds {
+                let is_allowed = allowed_token_kinds
+                    .iter()
+                    .any(|kind| discriminant(&token.kind) == discriminant(kind));
+
+                if !is_allowed {
+                    let err = ParseError {
+                        src: &file.source,
+                        file_path: file.path.clone(),
+                        line: token.pos.line,
+                        char: token.pos.char,
+                        length: token.original_slice(&file.source).chars().count(),
+                        kind: ParseErrorKind::UnexpectedToken(token),
+                    };
+
+                    err.throw();
+                }
+            }
+
             match token.kind {
                 TokenKind::Func => {
                     Node::Function(
@@ -71,6 +96,24 @@ impl Node {
                     )
                 }
 
+                TokenKind::Static => {
+                    Node::StaticVariable(
+                        StaticVarDecl::parse(file, iter)
+                    )
+                }
+
+                TokenKind::Struct => {
+                    Node::Structure(
+                        StructDecl::parse(file, iter)
+                    )
+                }
+                
+                TokenKind::Interface => {
+                    Node::Interface(
+                        InterfaceDecl::parse(file, iter)
+                    )
+                }
+
                 _ => {
                     let expr = Expr::parse(file, iter, 1, None);
                     expect_token(file, iter, TokenKind::Semicolon, ";");
@@ -116,6 +159,15 @@ pub enum Expr {
     Property {
         base: Box<Expr>,
         prop_name: Box<Expr>
+    },
+
+    ConstructorCall {
+        struct_type: Box<Expr>,
+        args: Vec<Expr>,
+    },
+    
+    Typeof {
+        expr: Box<Expr>,
     }
 }
 
@@ -135,12 +187,12 @@ pub struct ForStmt {
 pub struct FuncDecl {
     pub name: Token,
     pub return_type: Option<Expr>,
-    pub args: Vec<FuncParam>,
+    pub args: Vec<FuncParamDecl>,
     pub body: BlockStmt,
 }
 
 #[derive(Debug)]
-pub struct FuncParam {
+pub struct FuncParamDecl {
     pub name: Token,
     pub data_type: Expr,
 }
@@ -181,4 +233,39 @@ pub struct StaticVarDecl {
     pub name: Token,
     pub data_type: Option<Expr>,
     pub value: Expr,
+}
+
+#[derive(Debug)]
+pub struct StructDecl {
+    pub name: Token,
+    pub fields: Vec<StructFieldDecl>,
+    pub methods: Vec<FuncDecl>,
+    pub constructors: Vec<ConstructorDecl>,
+    pub interfaces: Vec<Token>
+}
+
+#[derive(Debug)]
+pub struct StructFieldDecl {
+    pub name: Token,
+    pub data_type: Expr,
+}
+
+#[derive(Debug)]
+pub struct ConstructorDecl {
+    pub args: Vec<FuncParamDecl>,
+    pub body: BlockStmt,
+}
+
+#[derive(Debug)]
+pub struct InterfaceDecl {
+    pub name: Token,
+    pub methods: Vec<FuncSignatureDecl>,
+    pub fields: Vec<StructFieldDecl>,
+}
+
+#[derive(Debug)]
+pub struct FuncSignatureDecl {
+    pub name: Token,
+    pub return_type: Expr,
+    pub args: Vec<FuncParamDecl>,
 }
