@@ -3,7 +3,7 @@ use crate::wargc_util::expect_token;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use crate::wargc_ast::lexer::{Token, TokenKind};
-use crate::wargc_ast::node::{BlockStmt, Expr, FuncDecl, FuncParam};
+use crate::wargc_ast::node::{BlockStmt, Expr, FuncDecl, FuncParamDecl};
 
 impl FuncDecl {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> FuncDecl {
@@ -11,7 +11,7 @@ impl FuncDecl {
 
         let name: Token;
         let mut return_type: Option<Expr> = None;
-        let mut args: Vec<FuncParam> = vec![];
+        let mut args: Vec<FuncParamDecl> = vec![];
         let body: BlockStmt;
 
         name = expect_token(file, iter, TokenKind::Identifier, "identifier");
@@ -22,7 +22,7 @@ impl FuncDecl {
             expect_token(file, iter, TokenKind::Colon, ":");
             let data_type = Expr::parse(file, iter, 1, None);
 
-            args.push(FuncParam {
+            args.push(FuncParamDecl {
                 name: arg_name,
                 data_type
             });
