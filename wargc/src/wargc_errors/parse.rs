@@ -18,8 +18,8 @@ pub enum ParseErrorKind<'src> {
     UnknownToken(&'src Token),
     UnexpectedToken(&'src Token),
     ExpectedToken(&'src str),
-    ExpectedOperator,
-    IncompleteExpression
+    IncompleteExpression,
+    ExpressionNotConstructable
 }
 
 impl<'src> Error for ParseError<'src> {
@@ -41,6 +41,10 @@ impl<'src> Error for ParseError<'src> {
                 format!("{}: unknown character escape: '{char}'", error_label())
             },
 
+            ParseErrorKind::ExpressionNotConstructable => {
+                format!("{}: keyword 'new' used with an unconstructable expression", error_label())
+            },
+
             ParseErrorKind::NumberLiteralNotParsable => {
                 format!("{}: number literal not parsable", error_label())
             },
@@ -55,10 +59,6 @@ impl<'src> Error for ParseError<'src> {
 
             ParseErrorKind::ExpectedToken(str) => {
                 format!("{}: expected token: '{}'", error_label(), str)
-            },
-
-            ParseErrorKind::ExpectedOperator => {
-                format!("{}: expected operator", error_label())
             },
 
             ParseErrorKind::IncompleteExpression => {
