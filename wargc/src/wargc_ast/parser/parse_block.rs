@@ -15,7 +15,7 @@ impl BlockStmt {
 
         while let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::RightBrace) {
             body.push(
-                Node::parse(file, iter)
+                Node::parse(file, iter, None)
             );
 
             // we take only one node
