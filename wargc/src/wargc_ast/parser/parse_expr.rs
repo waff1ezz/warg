@@ -5,7 +5,7 @@ use crate::wargc_errors::error::Error;
 use crate::wargc_ast::lexer::{Token, TokenKind};
 use crate::wargc_ast::node::Expr;
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
-use crate::wargc_util::Position;
+use crate::wargc_util::{expect_token, Position};
 
 enum OpType<'a> {
     Prefix(&'a Token),
@@ -246,6 +246,40 @@ impl Expr {
                 Expr::Identifier(token)
             }
 
+            TokenKind::New => {
+                match Self::parse(file, iter, 1, None) {
+                    Expr::FunctionCall { callee, args } => {
+                        Expr::ConstructorCall {
+                            struct_type: callee,
+                            args,
+                        }
+                    }
+
+                    _ => {
+                        let err = ParseError {
+                            src: &file.source,
+                            file_path: file.path.clone(),
+                            line: token.pos.line,
+                            char: token.pos.char,
+                            length: token.original_slice(&file.source).chars().count(),
+                            kind: ParseErrorKind::ExpressionNotConstructable,
+                        };
+
+                        err.throw();
+                    }
+                }
+            },
+
+            TokenKind::Typeof => {
+                expect_token(file, iter, TokenKind::LeftParentheses, "(");
+                let expr = Self::parse(file, iter, 1, None);
+                expect_token(file, iter, TokenKind::RightParentheses, ")");
+
+                Expr::Typeof {
+                    expr: Box::new(expr),
+                }
+            }
+
             TokenKind::Minus |
             TokenKind::Bang |
             TokenKind::Ampersand |
@@ -350,7 +384,7 @@ impl Expr {
                         line: op.pos.line,
                         char: op.pos.char,
                         length: op.original_slice(&file.source).chars().count(),
-                        kind: ParseErrorKind::ExpectedOperator,
+                        kind: ParseErrorKind::ExpectedToken(";"),
                     };
 
                     err.throw();
