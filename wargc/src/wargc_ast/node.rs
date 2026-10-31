@@ -107,7 +107,7 @@ impl Node {
                         StructDecl::parse(file, iter)
                     )
                 }
-                
+
                 TokenKind::Interface => {
                     Node::Interface(
                         InterfaceDecl::parse(file, iter)
