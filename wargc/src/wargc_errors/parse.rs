@@ -19,7 +19,8 @@ pub enum ParseErrorKind<'src> {
     UnexpectedToken(&'src Token),
     ExpectedToken(&'src str),
     IncompleteExpression,
-    ExpressionNotConstructable
+    ExpressionNotConstructable,
+    InvalidImportPlacement
 }
 
 impl<'src> Error for ParseError<'src> {
@@ -40,6 +41,10 @@ impl<'src> Error for ParseError<'src> {
             ParseErrorKind::UnknownCharacterEscape(char) => {
                 format!("{}: unknown character escape: '{char}'", error_label())
             },
+
+            ParseErrorKind::InvalidImportPlacement => {
+                format!("{}: an import declaration can only be used at the top level of a module.", error_label())
+            }
 
             ParseErrorKind::ExpressionNotConstructable => {
                 format!("{}: keyword 'new' used with an unconstructable expression", error_label())
