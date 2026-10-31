@@ -90,7 +90,7 @@ impl Expr {
     fn parse_fn_call(file: &File, iter: &mut Peekable<IntoIter<Token>>, callee: Expr) -> Expr {
         let mut args: Vec<Expr> = vec![];
 
-        iter.next(); // function name
+        expect_token(file, iter, TokenKind::Identifier, "identifier");
 
         loop {
             if let Some(next) = iter.peek() && matches!(next.kind, TokenKind::RightParentheses) {
@@ -152,18 +152,18 @@ impl Expr {
     }
 
     fn parse_property_access(file: &File, iter: &mut Peekable<IntoIter<Token>>, base: Expr) -> Expr {
-        let dot = iter.next();
+        let dot = expect_token(file, iter, TokenKind::Dot, ".");
 
         Expr::Property {
             base: Box::new(base),
             prop_name: Box::new(
-                Self::parse(file, iter, Self::precedence(OpType::Infix(&dot.unwrap()), file), None)
+                Self::parse(file, iter, Self::precedence(OpType::Infix(&dot), file), None)
             )
         }
     }
 
     fn parse_index(file: &File, iter: &mut Peekable<IntoIter<Token>>, base: Expr) -> Expr {
-        iter.next();
+        expect_token(file, iter, TokenKind::LeftBracket, "[");
 
         let index = if let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::RightBracket) {
             Some(Self::parse(file, iter, 1, None))
