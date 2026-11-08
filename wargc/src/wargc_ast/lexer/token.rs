@@ -2,7 +2,7 @@ use std::ops::Range;
 use crate::wargc_ast::node::Node;
 use crate::wargc_util::Position;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub pos: Position,
@@ -23,7 +23,7 @@ impl Token {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TokenKind {
     Number,
     Identifier,
