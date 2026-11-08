@@ -5,9 +5,10 @@ mod wargc_errors;
 mod wargc_driver;
 mod wargc_util;
 mod wargc_ast;
+mod wargc_analysis;
 
 fn main() {
-    let project = Project::resolve()
+    let mut project = Project::resolve()
         .unwrap_or_else(|err| err.throw());
     let flags = Flags::from_args()
         .unwrap_or_else(|err| err.throw());
