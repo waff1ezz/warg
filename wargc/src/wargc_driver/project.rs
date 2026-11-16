@@ -42,7 +42,7 @@ impl Project {
         }
 
         for module in &self.modules {
-            module.resolve_symbols();
+            //module.resolve_symbols();
         }
 
         dbg!(&self.modules);
@@ -51,15 +51,20 @@ impl Project {
 
     fn parse_file(&mut self, file: &mut File) {
         let tokens = file.generate_tokens();
-        file.ast = Some(file.make_ast(tokens));
+        file.ast = Some(
+            file.make_ast(tokens)
+        );
 
-        let imports = file.ast.as_ref().unwrap()
+        let imports = file.ast
+            .as_ref()
+            .unwrap()
+            .nodes
             .iter()
-            .filter(|node| matches!(&***node, Node::Import(..)))
+            .filter(|node| matches!(node, Node::Import(..)))
             .collect::<Vec<_>>();
 
         for import in imports {
-            if let Node::Import(stmt) = &**import {
+            if let Node::Import(stmt) = import {
                 let mut file_path = PathBuf::from(&self.dir);
 
                 for mod_part in &stmt.module {
@@ -92,7 +97,7 @@ impl Project {
 
     }
 
-    pub fn resolve() -> Result<Project, DriverError> {
+    pub fn resolve<'a>() -> Result<Project, DriverError> {
         let args: Vec<String> = std::env::args()
             .collect::<Vec<String>>();
 
