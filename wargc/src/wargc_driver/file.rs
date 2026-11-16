@@ -1,9 +1,12 @@
 use std::path::PathBuf;
 use crate::wargc_util::Position;
+use crate::wargc_ast::ast::Ast;
 
+#[derive(Debug)]
 pub struct File {
     pub path: PathBuf,
     pub source: String,
+    pub ast: Option<Ast>
 }
 
 impl File {
