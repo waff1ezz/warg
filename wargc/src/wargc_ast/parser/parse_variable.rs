@@ -1,9 +1,10 @@
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use crate::wargc_ast::lexer::{Token, TokenKind};
-use crate::wargc_ast::node::{Expr, VarDecl};
+use crate::wargc_ast::node::{Expr, SymbolId, VarDecl};
 use crate::wargc_driver::File;
-use crate::wargc_util::expect_token;
+use crate::wargc_util::{expect_token, inc_mutex};
+use crate::wargc_ast::make::SYMBOL_COUNTER;
 
 impl VarDecl {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, omit_semicolon: bool) -> VarDecl {
@@ -42,11 +43,15 @@ impl VarDecl {
             expect_token(file, iter, TokenKind::Semicolon, ";");
         }
 
+
         VarDecl {
             name,
             data_type,
             value,
             mutable,
+            symbol_id: SymbolId(
+                inc_mutex(&SYMBOL_COUNTER)
+            )
         }
     }
 }

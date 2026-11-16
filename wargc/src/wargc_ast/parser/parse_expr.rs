@@ -243,7 +243,10 @@ impl Expr {
             }
 
             TokenKind::Identifier => {
-                Expr::Identifier(token)
+                Expr::Identifier {
+                    token,
+                    decl: None
+                }
             }
 
             TokenKind::New => {

@@ -29,7 +29,7 @@ impl BlockStmt {
         }
 
         BlockStmt {
-            body
+            members: body
         }
     }
 }

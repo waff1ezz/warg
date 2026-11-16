@@ -1,9 +1,10 @@
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use crate::wargc_ast::lexer::{Token, TokenKind};
-use crate::wargc_ast::node::{Expr, StaticVarDecl};
+use crate::wargc_ast::make::SYMBOL_COUNTER;
+use crate::wargc_ast::node::{Expr, StaticVarDecl, SymbolId};
 use crate::wargc_driver::File;
-use crate::wargc_util::expect_token;
+use crate::wargc_util::{expect_token, inc_mutex};
 
 impl StaticVarDecl {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> StaticVarDecl {
@@ -33,7 +34,10 @@ impl StaticVarDecl {
         StaticVarDecl {
             name,
             data_type,
-            value
+            value,
+            symbol_id: SymbolId(
+                inc_mutex(&SYMBOL_COUNTER)
+            )
         }
     }
 }

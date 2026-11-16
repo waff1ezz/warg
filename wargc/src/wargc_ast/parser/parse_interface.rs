@@ -1,11 +1,12 @@
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use crate::wargc_ast::lexer::{Token, TokenKind};
-use crate::wargc_ast::node::{BlockStmt, Expr, FuncParamDecl, FuncSignatureDecl, InterfaceDecl, StructFieldDecl};
+use crate::wargc_ast::make::SYMBOL_COUNTER;
+use crate::wargc_ast::node::{BlockStmt, Expr, FuncParamDecl, FuncSignatureDecl, InterfaceDecl, StructFieldDecl, SymbolId};
 use crate::wargc_driver::File;
 use crate::wargc_errors::error::Error;
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
-use crate::wargc_util::expect_token;
+use crate::wargc_util::{expect_token, inc_mutex};
 
 impl InterfaceDecl {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> InterfaceDecl {
@@ -38,7 +39,10 @@ impl InterfaceDecl {
 
                         args.push(FuncParamDecl {
                             name: arg_name,
-                            data_type
+                            data_type,
+                            symbol_id: SymbolId(
+                                inc_mutex(&SYMBOL_COUNTER)
+                            )
                         });
 
                         if let Some(next_token) = iter.peek() && !matches!(next_token.kind, TokenKind::RightParentheses) {
@@ -71,6 +75,9 @@ impl InterfaceDecl {
                     fields.push(StructFieldDecl {
                         name: field_name,
                         data_type: field_type,
+                        symbol_id: SymbolId(
+                            inc_mutex(&SYMBOL_COUNTER)
+                        )
                     });
                 }
 
@@ -95,6 +102,9 @@ impl InterfaceDecl {
             name,
             fields,
             methods,
+            symbol_id: SymbolId(
+                inc_mutex(&SYMBOL_COUNTER)
+            )
         }
     }
 }
