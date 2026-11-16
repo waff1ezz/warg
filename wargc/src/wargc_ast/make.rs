@@ -1,14 +1,19 @@
+use std::collections::HashMap;
+use std::sync::Mutex;
+use crate::wargc_ast::ast::Ast;
 use crate::wargc_ast::lexer::{Token, TokenKind};
-use crate::wargc_ast::node::Node;
+use crate::wargc_ast::node::{Node, SymbolId};
 use crate::wargc_driver::File;
 
+pub static SYMBOL_COUNTER: Mutex<usize> = Mutex::new(0);
+
 impl File {
-    pub fn make_ast(&self, tokens: Vec<Token>) -> Vec<Node> {
+    pub fn make_ast(&self, tokens: Vec<Token>) -> Ast {
         let mut nodes: Vec<Node> = vec![];
         let mut iter = tokens
             .into_iter()
             .peekable();
-        
+
         while let Some(_) = iter.peek() {
             nodes.push(
                 Node::parse(&self, &mut iter, Some(vec![
@@ -22,6 +27,11 @@ impl File {
             );
         }
 
-        nodes
+        dbg!(*SYMBOL_COUNTER.lock().unwrap());
+
+        Ast {
+            nodes,
+            symbol_table: HashMap::new(),
+        }
     }
 }
