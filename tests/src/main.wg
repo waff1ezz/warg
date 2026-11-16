@@ -1,8 +1,5 @@
-func main(): void {
-    for (const i in range(0, 10)) {
-        something();
-        let x = 5 + something(1, i);
-    }
+import x from src.util.add;
 
-    export let i = 0;
+func main(x: int) {
+    x;
 }
