@@ -1,12 +1,11 @@
 use std::iter::Peekable;
 use std::mem::discriminant;
-use std::ops::Range;
 use std::vec::IntoIter;
 use crate::wargc_driver::File;
 use crate::wargc_ast::lexer::{Token, TokenKind};
 use crate::wargc_errors::error::Error;
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
-use crate::wargc_util::{expect_token, Position};
+use crate::wargc_util::expect_token;
 
 #[derive(Debug)]
 pub enum Node {
@@ -15,13 +14,14 @@ pub enum Node {
     For(ForStmt),
     Function(FuncDecl),
     If(IfStmt),
-    Import(ImportStmt),
     Export(ExportStmt),
     Return(ReturnStmt),
+    Import(ImportStmt),
     Variable(VarDecl),
     StaticVariable(StaticVarDecl),
     Structure(StructDecl),
     Interface(InterfaceDecl),
+    FunctionParam(FuncParamDecl)
 }
 
 impl Node {
@@ -129,11 +129,18 @@ impl Node {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct SymbolId(pub usize);
+
+#[derive(Debug, Clone)]
 pub enum Expr {
-    Identifier(Token),
     NumberLiteral(Token),
     StringLiteral(Token),
+
+    Identifier {
+        token: Token,
+        decl: Option<SymbolId>
+    },
 
     Binary {
         left: Box<Expr>,
@@ -173,7 +180,7 @@ pub enum Expr {
 
 #[derive(Debug)]
 pub struct BlockStmt {
-    pub body: Vec<Node>
+    pub members: Vec<Node>
 }
 
 #[derive(Debug)]
@@ -185,14 +192,16 @@ pub struct ForStmt {
 
 #[derive(Debug)]
 pub struct FuncDecl {
+    pub symbol_id: SymbolId,
     pub name: Token,
     pub return_type: Option<Expr>,
     pub args: Vec<FuncParamDecl>,
     pub body: BlockStmt,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FuncParamDecl {
+    pub symbol_id: SymbolId,
     pub name: Token,
     pub data_type: Expr,
 }
@@ -222,6 +231,7 @@ pub struct ReturnStmt {
 
 #[derive(Debug)]
 pub struct VarDecl {
+    pub symbol_id: SymbolId,
     pub name: Token,
     pub data_type: Option<Expr>,
     pub value: Option<Expr>,
@@ -230,6 +240,7 @@ pub struct VarDecl {
 
 #[derive(Debug)]
 pub struct StaticVarDecl {
+    pub symbol_id: SymbolId,
     pub name: Token,
     pub data_type: Option<Expr>,
     pub value: Expr,
@@ -237,6 +248,7 @@ pub struct StaticVarDecl {
 
 #[derive(Debug)]
 pub struct StructDecl {
+    pub symbol_id: SymbolId,
     pub name: Token,
     pub fields: Vec<StructFieldDecl>,
     pub methods: Vec<FuncDecl>,
@@ -246,6 +258,7 @@ pub struct StructDecl {
 
 #[derive(Debug)]
 pub struct StructFieldDecl {
+    pub symbol_id: SymbolId,
     pub name: Token,
     pub data_type: Expr,
 }
@@ -258,6 +271,7 @@ pub struct ConstructorDecl {
 
 #[derive(Debug)]
 pub struct InterfaceDecl {
+    pub symbol_id: SymbolId,
     pub name: Token,
     pub methods: Vec<FuncSignatureDecl>,
     pub fields: Vec<StructFieldDecl>,
