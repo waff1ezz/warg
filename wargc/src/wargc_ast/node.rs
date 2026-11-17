@@ -129,7 +129,7 @@ impl Node {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct SymbolId(pub usize);
 
 #[derive(Debug, Clone)]
