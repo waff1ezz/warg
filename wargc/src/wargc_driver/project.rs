@@ -41,11 +41,10 @@ impl Project {
             self.modules.push(entry_file);
         }
 
-        for module in &self.modules {
-            //module.resolve_symbols();
+        for module in &mut self.modules {
+            module.resolve_symbols();
         }
 
-        dbg!(&self.modules);
         Ok(())
     }
 
@@ -93,8 +92,6 @@ impl Project {
                 }
             }
         }
-
-
     }
 
     pub fn resolve<'a>() -> Result<Project, DriverError> {
