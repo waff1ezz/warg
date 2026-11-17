@@ -1,5 +1,9 @@
-import x from src.util.add;
-
 func main(x: int) {
-    x;
+
+}
+
+func foo(x: int, y: int) {
+    func bar() {
+    
+    }
 }
