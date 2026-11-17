@@ -27,8 +27,6 @@ impl File {
             );
         }
 
-        dbg!(*SYMBOL_COUNTER.lock().unwrap());
-
         Ast {
             nodes,
             symbol_table: HashMap::new(),
