@@ -7,7 +7,7 @@ use crate::wargc_driver::File;
 use crate::wargc_util::{expect_token, inc_mutex};
 
 impl StaticVarDecl {
-    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> StaticVarDecl {
+    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, export_flag: bool) -> StaticVarDecl {
         expect_token(file, iter, TokenKind::Static, "static");
 
         let name: Token;
@@ -35,6 +35,7 @@ impl StaticVarDecl {
             name,
             data_type,
             value,
+            exported: export_flag,
             symbol_id: SymbolId(
                 inc_mutex(&SYMBOL_COUNTER)
             )

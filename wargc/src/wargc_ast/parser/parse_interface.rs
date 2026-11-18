@@ -9,7 +9,7 @@ use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
 use crate::wargc_util::{expect_token, inc_mutex};
 
 impl InterfaceDecl {
-    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> InterfaceDecl {
+    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, export_flag: bool) -> InterfaceDecl {
         expect_token(file, iter, TokenKind::Interface, "interface");
 
         let name: Token;
@@ -102,6 +102,7 @@ impl InterfaceDecl {
             name,
             fields,
             methods,
+            exported: export_flag,
             symbol_id: SymbolId(
                 inc_mutex(&SYMBOL_COUNTER)
             )

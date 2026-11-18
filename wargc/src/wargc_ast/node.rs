@@ -14,7 +14,6 @@ pub enum Node {
     For(ForStmt),
     Function(FuncDecl),
     If(IfStmt),
-    Export(ExportStmt),
     Return(ReturnStmt),
     Import(ImportStmt),
     Variable(VarDecl),
@@ -25,7 +24,7 @@ pub enum Node {
 }
 
 impl Node {
-    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, allowed_token_kinds: Option<Vec<TokenKind>>) -> Self {
+    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, export_flag: bool, allowed_token_kinds: Option<Vec<TokenKind>>) -> Self {
         if let Some(token) = iter.peek() {
             if let Some(allowed_token_kinds) = allowed_token_kinds {
                 let is_allowed = allowed_token_kinds
@@ -49,7 +48,7 @@ impl Node {
             match token.kind {
                 TokenKind::Func => {
                     Node::Function(
-                        FuncDecl::parse(file, iter)
+                        FuncDecl::parse(file, iter, export_flag)
                     )
                 },
 
@@ -73,9 +72,14 @@ impl Node {
                 }
 
                 TokenKind::Export => {
-                    Node::Export(
-                        ExportStmt::parse(file, iter)
-                    )
+                    expect_token(file, iter, TokenKind::Export, "export");
+
+                    Self::parse(file, iter, true, Some(vec![
+                        TokenKind::Func,
+                        TokenKind::Struct,
+                        TokenKind::Interface,
+                        TokenKind::Static,
+                    ]))
                 }
 
                 TokenKind::Return => {
@@ -98,19 +102,19 @@ impl Node {
 
                 TokenKind::Static => {
                     Node::StaticVariable(
-                        StaticVarDecl::parse(file, iter)
+                        StaticVarDecl::parse(file, iter, export_flag)
                     )
                 }
 
                 TokenKind::Struct => {
                     Node::Structure(
-                        StructDecl::parse(file, iter)
+                        StructDecl::parse(file, iter, export_flag)
                     )
                 }
 
                 TokenKind::Interface => {
                     Node::Interface(
-                        InterfaceDecl::parse(file, iter)
+                        InterfaceDecl::parse(file, iter, export_flag)
                     )
                 }
 
@@ -193,6 +197,7 @@ pub struct FuncDecl {
     pub symbol_id: SymbolId,
     pub name: Token,
     pub return_type: Option<Expr>,
+    pub exported: bool,
     pub args: Vec<FuncParamDecl>,
     pub body: BlockStmt,
 }
@@ -218,11 +223,6 @@ pub struct ImportStmt {
 }
 
 #[derive(Debug)]
-pub struct ExportStmt {
-    pub item: Box<Node>,
-}
-
-#[derive(Debug)]
 pub struct ReturnStmt {
     pub value: Expr
 }
@@ -242,6 +242,7 @@ pub struct StaticVarDecl {
     pub name: Token,
     pub data_type: Option<Expr>,
     pub value: Expr,
+    pub exported: bool
 }
 
 #[derive(Debug)]
@@ -251,7 +252,8 @@ pub struct StructDecl {
     pub fields: Vec<StructFieldDecl>,
     pub methods: Vec<FuncDecl>,
     pub constructors: Vec<ConstructorDecl>,
-    pub interfaces: Vec<Token>
+    pub interfaces: Vec<Token>,
+    pub exported: bool
 }
 
 #[derive(Debug)]
@@ -273,6 +275,7 @@ pub struct InterfaceDecl {
     pub name: Token,
     pub methods: Vec<FuncSignatureDecl>,
     pub fields: Vec<StructFieldDecl>,
+    pub exported: bool
 }
 
 #[derive(Debug)]

@@ -7,7 +7,7 @@ use crate::wargc_ast::make::SYMBOL_COUNTER;
 use crate::wargc_ast::node::{BlockStmt, Expr, FuncDecl, FuncParamDecl, SymbolId};
 
 impl FuncDecl {
-    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> FuncDecl {
+    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, export_flag: bool) -> FuncDecl {
         expect_token(file, iter, TokenKind::Func, "func");
 
         let name: Token;
@@ -52,6 +52,7 @@ impl FuncDecl {
             return_type,
             args,
             body,
+            exported: export_flag,
             symbol_id: SymbolId(
                 inc_mutex(&SYMBOL_COUNTER)
             )

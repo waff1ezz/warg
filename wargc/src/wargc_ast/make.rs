@@ -16,7 +16,7 @@ impl File {
 
         while let Some(_) = iter.peek() {
             nodes.push(
-                Node::parse(&self, &mut iter, Some(vec![
+                Node::parse(&self, &mut iter, false, Some(vec![
                     TokenKind::Func,
                     TokenKind::Struct,
                     TokenKind::Static,

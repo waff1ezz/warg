@@ -9,7 +9,7 @@ use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
 use crate::wargc_util::{expect_token, inc_mutex};
 
 impl StructDecl {
-    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> StructDecl {
+    pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, export_flag: bool) -> StructDecl {
         expect_token(file, iter, TokenKind::Struct, "struct");
 
         let name: Token;
@@ -40,7 +40,7 @@ impl StructDecl {
             match token.kind {
                 TokenKind::Func => {
                     methods.push(
-                        FuncDecl::parse(file, iter)
+                        FuncDecl::parse(file, iter, false)
                     )
                 }
 
@@ -119,6 +119,7 @@ impl StructDecl {
             methods,
             constructors,
             interfaces,
+            exported: export_flag,
             symbol_id: SymbolId(
                 inc_mutex(&SYMBOL_COUNTER)
             )
