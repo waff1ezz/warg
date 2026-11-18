@@ -1,82 +1,185 @@
-use std::slice::Iter;
-use crate::wargc_ast::ast::Ast;
-use crate::wargc_ast::lexer::Token;
-use crate::wargc_ast::node::{BlockStmt, Expr, Node, SymbolId};
-use crate::wargc_driver::{File, Project};
+use std::path::PathBuf;
+use std::slice::IterMut;
+use crate::wargc_ast::node::{Expr, Node, SymbolId};
+use crate::wargc_driver::File;
+use crate::wargc_errors::error::Error;
 use crate::wargc_errors::fatal::throw_fatal;
-
-impl Project {
-    pub fn resolve_symbols(&self) {
-        for module in &self.modules {
-        }
-    }
-}
+use crate::wargc_errors::semantic::{SemanticError, SemanticErrorKind};
 
 impl File {
     pub fn resolve_symbols(&mut self) {
-        if let Some(ast) = &self.ast {
-            let symbols = self.resolve_scope_symbols(
-                ast,
-                ast.nodes.iter(),
-                &vec![]
+        let mut resolved_symbols: Vec<(&str, SymbolId)> = vec![];
+
+        if let Some(ast) = &mut self.ast {
+            Self::resolve_scope_symbols(
+                &self.path,
+                &self.source,
+                ast.nodes.iter_mut(),
+                &mut resolved_symbols
             );
 
-            dbg!(symbols);
-        } 
-        
-        else {
+            dbg!(&resolved_symbols);
+        } else {
             throw_fatal("an attempt to resolve symbols of an unready file")
         }
     }
 
-    fn resolve_scope_symbols(&self, ast: &Ast, mut nodes_iter: Iter<Node>, parent_scope_symbols: &Vec<&str>) -> Vec<&str> {
-        let mut resolved_symbols: Vec<&str> = vec![];
+    fn resolve_scope_symbols<'a>(path: &PathBuf, source: &'a str, mut nodes_iter: IterMut<Node>, resolved_symbols: &mut Vec<(&'a str, SymbolId)>) {
+        fn dive_into_expr(path: &PathBuf, source: &str, resolved_symbols: &mut Vec<(&str, SymbolId)>, expr: &mut Expr) {
+            match expr {
+                Expr::Identifier { token, decl } => {
+                    let symbol_name = token.original_slice(source);
+                    let maybe_symbol_decl = resolved_symbols
+                        .iter()
+                        .rev()
+                        .find(|&&symbol| { symbol.0 == symbol_name });
+
+                    if let Some(symbol_decl) = maybe_symbol_decl {
+                        *decl = Some(symbol_decl.1);
+                    } else {
+                        let err = SemanticError {
+                            src: source,
+                            file_path: path.clone(),
+                            line: token.pos.line,
+                            char: token.pos.char,
+                            length: token.original_slice(source).chars().count(),
+                            kind: SemanticErrorKind::UnresolvedSymbol(token.original_slice(source)),
+                        };
+
+                        err.throw();
+                    }
+                },
+
+                Expr::Binary { left, right, .. } => {
+                    dive_into_expr(path, source, resolved_symbols, left);
+                    dive_into_expr(path, source, resolved_symbols, right);
+                }
+
+                Expr::Unary { operand, .. } => {
+                    dive_into_expr(path, source, resolved_symbols, operand);
+                }
+
+                Expr::FunctionCall { callee, args } => {
+                    dive_into_expr(path, source, resolved_symbols, callee);
+
+                    for func_param in args {
+                        dive_into_expr(path, source, resolved_symbols, func_param);
+                    }
+                }
+
+                Expr::Index { base, index } => {
+                    dive_into_expr(path, source, resolved_symbols, base);
+
+                    if let Some(index) = index {
+                        dive_into_expr(path, source, resolved_symbols, index);
+                    }
+                }
+
+                Expr::Property { base, prop_name } => {
+                    dive_into_expr(path, source, resolved_symbols, base);
+                    dive_into_expr(path, source, resolved_symbols, prop_name);
+                }
+
+                Expr::ConstructorCall { struct_type, args } => {
+                    dive_into_expr(path, source, resolved_symbols, struct_type);
+
+                    for constructor_args in args {
+                        dive_into_expr(path, source, resolved_symbols, constructor_args);
+                    }
+                }
+
+                Expr::Typeof { expr } => {
+                    dive_into_expr(path, source, resolved_symbols, expr);
+                }
+
+                _ => {}
+            }
+        };
 
         while let Some(node) = nodes_iter.next() {
             match node {
                 Node::Expression(expr) => {
-                    if let Expr::Identifier { token, decl } = &expr {}
-                }
-
-                Node::Import(import_stmt) => {
-                    for member in &import_stmt.members {
-
-                    }
+                    dive_into_expr(path, source, resolved_symbols, expr);
                 }
 
                 Node::Function(func_stmt) => {
-                    resolved_symbols.push(
-                        func_stmt.name.original_slice(&self.source)
-                    );
+                    resolved_symbols.push((
+                        func_stmt.name.original_slice(source),
+                        func_stmt.symbol_id
+                    ));
 
-                    for func_arg in &func_stmt.args {
-                        resolved_symbols.push(
-                            func_arg.name.original_slice(&self.source)
-                        );
+                    for func_param in &func_stmt.args {
+                        resolved_symbols.push((
+                            func_param.name.original_slice(source),
+                            func_param.symbol_id
+                        ));
                     }
 
-                    resolved_symbols.append(
-                        &mut self.resolve_scope_symbols(
-                            ast,
-                            func_stmt.body.members.iter(),
-                            &resolved_symbols
-                        )
+                    Self::resolve_scope_symbols(
+                        path,
+                        source,
+                        func_stmt.body.members.iter_mut(),
+                        resolved_symbols
                     );
                 }
 
-                Node::Block(_) => {}
-                Node::For(_) => {}
+                Node::Variable(var_decl) => {
+                    resolved_symbols.push((
+                        var_decl.name.original_slice(source),
+                        var_decl.symbol_id
+                    ));
+                }
+
+                Node::Structure(struct_decl) => {
+                    resolved_symbols.push((
+                        struct_decl.name.original_slice(source),
+                        struct_decl.symbol_id
+                    ));
+                }
+
+                Node::Block(block_stmt) => {
+                    Self::resolve_scope_symbols(
+                        path,
+                        source,
+                        block_stmt.members.iter_mut(),
+                        resolved_symbols
+                    );
+                }
+
+                Node::For(for_stmt) => {
+                    resolved_symbols.push((
+                        for_stmt.var.name.original_slice(source),
+                        for_stmt.var.symbol_id
+                    ));
+
+                    Self::resolve_scope_symbols(
+                        path,
+                        source,
+                        for_stmt.body.members.iter_mut(),
+                        resolved_symbols
+                    );
+                }
+
+                Node::StaticVariable(var_decl) => {
+                    resolved_symbols.push((
+                        var_decl.name.original_slice(source),
+                        var_decl.symbol_id
+                    ));
+                }
+
+                Node::Interface(interface_decl) => {
+                    resolved_symbols.push((
+                        interface_decl.name.original_slice(source),
+                        interface_decl.symbol_id
+                    ));
+                }
+
                 Node::If(_) => {}
                 Node::Export(_) => {}
                 Node::Return(_) => {}
-                Node::Variable(_) => {}
-                Node::StaticVariable(_) => {}
-                Node::Structure(_) => {}
-                Node::Interface(_) => {}
+                Node::Import(_) => {}
                 Node::FunctionParam(_) => {}
             }
         }
-
-        resolved_symbols
     }
 }
