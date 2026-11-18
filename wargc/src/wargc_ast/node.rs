@@ -121,9 +121,7 @@ impl Node {
                     Node::Expression(expr)
                 }
             }
-        }
-
-        else {
+        } else {
             unreachable!();
         }
     }
