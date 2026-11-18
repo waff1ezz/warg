@@ -11,20 +11,34 @@ impl File {
         let mut resolved_symbols: Vec<(&str, SymbolId)> = vec![];
 
         if let Some(ast) = &mut self.ast {
+            // this one to capture global symbols
             Self::resolve_scope_symbols(
                 &self.path,
                 &self.source,
                 ast.nodes.iter_mut(),
-                &mut resolved_symbols
+                &mut resolved_symbols,
+                true
             );
 
-            dbg!(&resolved_symbols);
+            Self::resolve_scope_symbols(
+                &self.path,
+                &self.source,
+                ast.nodes.iter_mut(),
+                &mut resolved_symbols,
+                false
+            );
         } else {
             throw_fatal("an attempt to resolve symbols of an unready file")
         }
     }
 
-    fn resolve_scope_symbols<'a>(path: &PathBuf, source: &'a str, mut nodes_iter: IterMut<Node>, resolved_symbols: &mut Vec<(&'a str, SymbolId)>) {
+    fn resolve_scope_symbols<'a>(
+        path: &PathBuf,
+        source: &'a str,
+        mut nodes_iter: IterMut<Node>,
+        resolved_symbols: &mut Vec<(&'a str, SymbolId)>,
+        global_scope: bool
+    ) {
         fn dive_into_expr(path: &PathBuf, source: &str, resolved_symbols: &mut Vec<(&str, SymbolId)>, expr: &mut Expr) {
             match expr {
                 Expr::Identifier { token, decl } => {
@@ -94,7 +108,10 @@ impl File {
 
                 _ => {}
             }
-        };
+        }
+
+        // this doesn't refer to child scopes
+        let mut scope_symbols_counter = 0;
 
         while let Some(node) = nodes_iter.next() {
             match node {
@@ -108,19 +125,30 @@ impl File {
                         func_stmt.symbol_id
                     ));
 
+                    if !global_scope {
+                        scope_symbols_counter += 1;
+                    }
+
                     for func_param in &func_stmt.args {
                         resolved_symbols.push((
                             func_param.name.original_slice(source),
                             func_param.symbol_id
                         ));
+
+                        if !global_scope {
+                            scope_symbols_counter += 1;
+                        }
                     }
 
-                    Self::resolve_scope_symbols(
-                        path,
-                        source,
-                        func_stmt.body.members.iter_mut(),
-                        resolved_symbols
-                    );
+                    if !global_scope {
+                        Self::resolve_scope_symbols(
+                            path,
+                            source,
+                            func_stmt.body.members.iter_mut(),
+                            resolved_symbols,
+                            false
+                        );
+                    }
                 }
 
                 Node::Variable(var_decl) => {
@@ -128,6 +156,10 @@ impl File {
                         var_decl.name.original_slice(source),
                         var_decl.symbol_id
                     ));
+
+                    if !global_scope {
+                        scope_symbols_counter += 1;
+                    }
                 }
 
                 Node::Structure(struct_decl) => {
@@ -135,15 +167,22 @@ impl File {
                         struct_decl.name.original_slice(source),
                         struct_decl.symbol_id
                     ));
+
+                    if !global_scope {
+                        scope_symbols_counter += 1;
+                    }
                 }
 
                 Node::Block(block_stmt) => {
-                    Self::resolve_scope_symbols(
-                        path,
-                        source,
-                        block_stmt.members.iter_mut(),
-                        resolved_symbols
-                    );
+                    if !global_scope {
+                        Self::resolve_scope_symbols(
+                            path,
+                            source,
+                            block_stmt.members.iter_mut(),
+                            resolved_symbols,
+                            false
+                        );
+                    }
                 }
 
                 Node::For(for_stmt) => {
@@ -152,12 +191,15 @@ impl File {
                         for_stmt.var.symbol_id
                     ));
 
-                    Self::resolve_scope_symbols(
-                        path,
-                        source,
-                        for_stmt.body.members.iter_mut(),
-                        resolved_symbols
-                    );
+                    if !global_scope {
+                        Self::resolve_scope_symbols(
+                            path,
+                            source,
+                            for_stmt.body.members.iter_mut(),
+                            resolved_symbols,
+                            false
+                        );
+                    }
                 }
 
                 Node::StaticVariable(var_decl) => {
@@ -165,6 +207,10 @@ impl File {
                         var_decl.name.original_slice(source),
                         var_decl.symbol_id
                     ));
+
+                    if !global_scope {
+                        scope_symbols_counter += 1;
+                    }
                 }
 
                 Node::Interface(interface_decl) => {
@@ -172,6 +218,10 @@ impl File {
                         interface_decl.name.original_slice(source),
                         interface_decl.symbol_id
                     ));
+
+                    if !global_scope {
+                        scope_symbols_counter += 1;
+                    }
                 }
 
                 Node::If(_) => {}
@@ -181,5 +231,7 @@ impl File {
                 Node::FunctionParam(_) => {}
             }
         }
+
+        resolved_symbols.truncate(resolved_symbols.len() - scope_symbols_counter);
     }
 }
