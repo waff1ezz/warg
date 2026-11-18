@@ -4,6 +4,8 @@ use crate::wargc_util::expect_token;
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use crate::wargc_ast::lexer::{Token, TokenKind};
+use crate::wargc_errors::error::Error;
+use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
 
 impl ForStmt {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> ForStmt {
@@ -12,7 +14,37 @@ impl ForStmt {
         let body: BlockStmt;
 
         expect_token(file, iter, TokenKind::For, "for");
-        expect_token(file, iter, TokenKind::LeftParentheses, "(");
+        let paren = expect_token(file, iter, TokenKind::LeftParentheses, "(");
+
+        match iter.peek() {
+            None => {
+                let err = ParseError {
+                    src: &file.source,
+                    file_path: file.path.clone(),
+                    line: paren.pos.line,
+                    char: paren.pos.char + 1,
+                    length: 1,
+                    kind: ParseErrorKind::ExpectedToken("let"),
+                };
+
+                err.throw();
+            }
+
+            Some(t) => {
+                if !matches!(t.kind, TokenKind::Let) {
+                    let err = ParseError {
+                        src: &file.source,
+                        file_path: file.path.clone(),
+                        line: t.pos.line,
+                        char: t.pos.char,
+                        length: t.original_slice(&file.source).chars().count(),
+                        kind: ParseErrorKind::ExpectedToken("let"),
+                    };
+
+                    err.throw();
+                }
+            }
+        }
 
         var = VarDecl::parse(file, iter, true);
 
