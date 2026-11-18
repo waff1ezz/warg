@@ -13,7 +13,7 @@ pub struct SemanticError<'src> {
 }
 
 pub enum SemanticErrorKind<'src> {
-    UnresolvedVariable(&'src str)
+    UnresolvedSymbol(&'src str),
 }
 
 impl<'src> Error for SemanticError<'src> {
@@ -31,8 +31,8 @@ impl<'src> Error for SemanticError<'src> {
         eprintln!("{}", underline.bright_red());
 
         let msg = match &self.kind {
-            SemanticErrorKind::UnresolvedVariable(var_name) => {
-                format!("{}: unresolved variable: '{var_name}'", error_label())
+            SemanticErrorKind::UnresolvedSymbol(name) => {
+                format!("{}: unresolved symbol: '{name}'", error_label())
             }
         };
 
