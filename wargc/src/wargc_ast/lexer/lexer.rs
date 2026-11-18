@@ -168,8 +168,9 @@ impl File {
 
             ReadMode::ReadStringLiteral => {
                 let length = token_chars.chars().count();
+
                 match str {
-                    Some(str) => Token::new(TokenKind::String(str), state.line, first_char_pos - length, span),
+                    Some(str) => Token::new(TokenKind::String(str), state.line, first_char_pos, span),
                     None => throw_fatal("an attempt to push string literal without passing 'str' argument")
                 }
             }
