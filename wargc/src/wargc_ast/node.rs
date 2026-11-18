@@ -20,7 +20,6 @@ pub enum Node {
     StaticVariable(StaticVarDecl),
     Structure(StructDecl),
     Interface(InterfaceDecl),
-    FunctionParam(FuncParamDecl)
 }
 
 impl Node {
