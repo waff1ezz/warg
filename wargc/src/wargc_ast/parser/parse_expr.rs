@@ -90,7 +90,7 @@ impl Expr {
     fn parse_fn_call(file: &File, iter: &mut Peekable<IntoIter<Token>>, callee: Expr) -> Expr {
         let mut args: Vec<Expr> = vec![];
 
-        expect_token(file, iter, TokenKind::Identifier, "identifier");
+        expect_token(file, iter, TokenKind::LeftParentheses, "(");
 
         loop {
             if let Some(next) = iter.peek() && matches!(next.kind, TokenKind::RightParentheses) {
