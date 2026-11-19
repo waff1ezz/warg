@@ -3,7 +3,7 @@ use std::vec::IntoIter;
 use crate::wargc_ast::lexer::{Token, TokenKind};
 use crate::wargc_ast::node::ImportStmt;
 use crate::wargc_driver::File;
-use crate::wargc_util::expect_token;
+use crate::wargc_util::{expect_token, verify_symbol_name};
 
 impl ImportStmt {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>) -> ImportStmt {
@@ -13,9 +13,10 @@ impl ImportStmt {
         let mut module: Vec<Token> = vec![];
 
         while let Some(_) = iter.peek() {
-            members.push(
-                expect_token(file, iter, TokenKind::Identifier, "identifier")
-            );
+            let name = expect_token(file, iter, TokenKind::Identifier, "identifier");
+            verify_symbol_name(file, &name);
+
+            members.push(name);
 
             if let Some(next_token) = iter.peek() && !matches!(next_token.kind, TokenKind::Comma) {
                 break;

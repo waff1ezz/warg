@@ -3,8 +3,10 @@ use std::vec::IntoIter;
 use crate::wargc_ast::lexer::{Token, TokenKind};
 use crate::wargc_ast::node::{Expr, SymbolId, VarDecl};
 use crate::wargc_driver::File;
-use crate::wargc_util::{expect_token, inc_mutex};
-use crate::wargc_ast::make::SYMBOL_COUNTER;
+use crate::wargc_util::{expect_token, inc_mutex, verify_symbol_name};
+use crate::wargc_ast::make::{SYMBOL_COUNTER, BUILT_IN_SYMBOLS};
+use crate::wargc_errors::error::Error;
+use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
 
 impl VarDecl {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, omit_semicolon: bool) -> VarDecl {
@@ -19,6 +21,7 @@ impl VarDecl {
         let value: Option<Expr>;
 
         name = expect_token(file, iter, TokenKind::Identifier, "identifier");
+        verify_symbol_name(file, &name);
 
         if let Some(next_token) = iter.peek() && matches!(next_token.kind, TokenKind::Colon) {
             expect_token(file, iter, TokenKind::Colon, ":");

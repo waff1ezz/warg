@@ -6,7 +6,7 @@ use crate::wargc_ast::node::{BlockStmt, Expr, FuncParamDecl, FuncSignatureDecl, 
 use crate::wargc_driver::File;
 use crate::wargc_errors::error::Error;
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
-use crate::wargc_util::{expect_token, inc_mutex};
+use crate::wargc_util::{expect_token, inc_mutex, verify_symbol_name};
 
 impl InterfaceDecl {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, export_flag: bool) -> InterfaceDecl {
@@ -17,6 +17,7 @@ impl InterfaceDecl {
         let mut methods: Vec<FuncSignatureDecl> = vec![];
 
         name = expect_token(file, iter, TokenKind::Identifier, "identifier");
+        verify_symbol_name(file, &name);
 
         expect_token(file, iter, TokenKind::LeftBrace, "{");
 

@@ -4,7 +4,7 @@ use crate::wargc_ast::lexer::{Token, TokenKind};
 use crate::wargc_ast::make::SYMBOL_COUNTER;
 use crate::wargc_ast::node::{Expr, StaticVarDecl, SymbolId};
 use crate::wargc_driver::File;
-use crate::wargc_util::{expect_token, inc_mutex};
+use crate::wargc_util::{expect_token, inc_mutex, verify_symbol_name};
 
 impl StaticVarDecl {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, export_flag: bool) -> StaticVarDecl {
@@ -15,6 +15,7 @@ impl StaticVarDecl {
         let value: Expr;
 
         name = expect_token(file, iter, TokenKind::Identifier, "identifier");
+        verify_symbol_name(file, &name);
 
         if let Some(next_token) = iter.peek() && matches!(next_token.kind, TokenKind::Colon) {
             expect_token(file, iter, TokenKind::Colon, ":");

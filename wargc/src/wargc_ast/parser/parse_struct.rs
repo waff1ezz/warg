@@ -6,7 +6,7 @@ use crate::wargc_ast::node::{FuncDecl, ConstructorDecl, StructDecl, StructFieldD
 use crate::wargc_driver::File;
 use crate::wargc_errors::error::Error;
 use crate::wargc_errors::parse::{ParseError, ParseErrorKind};
-use crate::wargc_util::{expect_token, inc_mutex};
+use crate::wargc_util::{expect_token, inc_mutex, verify_symbol_name};
 
 impl StructDecl {
     pub fn parse(file: &File, iter: &mut Peekable<IntoIter<Token>>, export_flag: bool) -> StructDecl {
@@ -16,16 +16,17 @@ impl StructDecl {
         let mut fields: Vec<StructFieldDecl> = vec![];
         let mut methods: Vec<FuncDecl> = vec![];
         let mut constructors: Vec<ConstructorDecl> = vec![];
-        let mut interfaces: Vec<Token> = vec![];
+        let mut interfaces: Vec<Expr> = vec![];
 
         name = expect_token(file, iter, TokenKind::Identifier, "identifier");
+        verify_symbol_name(file, &name);
 
         if let Some(next_token) = iter.peek() && matches!(next_token.kind, TokenKind::Implements) {
             expect_token(file, iter, TokenKind::Implements, "implements");
 
             while let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::LeftBrace) {
                 interfaces.push(
-                    expect_token(file, iter, TokenKind::Identifier, "identifier")
+                    Expr::parse(file, iter, 1, None)
                 );
 
                 if let Some(next_token) = iter.peek() && !matches!(next_token.kind, TokenKind::LeftBrace) {

@@ -1,5 +1,5 @@
 use crate::wargc_driver::File;
-use crate::wargc_util::{expect_token, inc_mutex};
+use crate::wargc_util::{expect_token, inc_mutex, verify_symbol_name};
 use std::iter::Peekable;
 use std::vec::IntoIter;
 use crate::wargc_ast::lexer::{Token, TokenKind};
@@ -16,6 +16,8 @@ impl FuncDecl {
         let body: BlockStmt;
 
         name = expect_token(file, iter, TokenKind::Identifier, "identifier");
+        verify_symbol_name(file, &name);
+
         expect_token(file, iter, TokenKind::LeftParentheses, "(");
 
         while let Some(token) = iter.peek() && !matches!(token.kind, TokenKind::RightParentheses) {
