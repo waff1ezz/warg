@@ -200,6 +200,8 @@ impl File {
                             false
                         );
                     }
+
+                    resolved_symbols.truncate(resolved_symbols.len() - 1);
                 }
 
                 Node::StaticVariable(var_decl) => {
@@ -224,11 +226,33 @@ impl File {
                     }
                 }
 
-                Node::If(_) => {}
-                Node::Export(_) => {}
-                Node::Return(_) => {}
-                Node::Import(_) => {}
-                Node::FunctionParam(_) => {}
+                Node::If(if_stmt) => {
+                    dive_into_expr(path, source, resolved_symbols, &mut if_stmt.condition);
+
+                    Self::resolve_scope_symbols(
+                        path,
+                        source,
+                        if_stmt.then_body.members.iter_mut(),
+                        resolved_symbols,
+                        false
+                    );
+
+                    if if_stmt.else_body.is_some() {
+                        Self::resolve_scope_symbols(
+                            path,
+                            source,
+                            if_stmt.else_body.as_mut().unwrap().members.iter_mut(),
+                            resolved_symbols,
+                            false
+                        );
+                    }
+                }
+
+                Node::Return(return_stmt) => {
+                    dive_into_expr(path, source, resolved_symbols, &mut return_stmt.value);
+                }
+
+                Node::Import(_) => todo!()
             }
         }
 
