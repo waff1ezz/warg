@@ -20,7 +20,8 @@ pub enum ParseErrorKind<'src> {
     ExpectedToken(&'src str),
     IncompleteExpression,
     ExpressionNotConstructable,
-    InvalidImportPlacement
+    InvalidImportPlacement,
+    ForbiddenName(&'src str),
 }
 
 impl<'src> Error for ParseError<'src> {
@@ -68,6 +69,10 @@ impl<'src> Error for ParseError<'src> {
 
             ParseErrorKind::IncompleteExpression => {
                 format!("{}: incomplete expression", error_label())
+            },
+
+            ParseErrorKind::ForbiddenName(name) => {
+                format!("{}: '{}' cannot be used as a symbol name", error_label(), name)
             }
         };
 
