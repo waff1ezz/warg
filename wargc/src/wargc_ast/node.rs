@@ -251,7 +251,7 @@ pub struct StructDecl {
     pub fields: Vec<StructFieldDecl>,
     pub methods: Vec<FuncDecl>,
     pub constructors: Vec<ConstructorDecl>,
-    pub interfaces: Vec<Token>,
+    pub interfaces: Vec<Expr>,
     pub exported: bool
 }
 
