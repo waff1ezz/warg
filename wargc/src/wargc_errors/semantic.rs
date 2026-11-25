@@ -14,6 +14,7 @@ pub struct SemanticError<'src> {
 
 pub enum SemanticErrorKind<'src> {
     UnresolvedSymbol(&'src str),
+    ForbiddenSymbolRedeclaration(&'src str),
 }
 
 impl<'src> Error for SemanticError<'src> {
@@ -33,6 +34,10 @@ impl<'src> Error for SemanticError<'src> {
         let msg = match &self.kind {
             SemanticErrorKind::UnresolvedSymbol(name) => {
                 format!("{}: unresolved symbol: '{name}'", error_label())
+            }
+
+            SemanticErrorKind::ForbiddenSymbolRedeclaration(name) => {
+                format!("{}: forbidden symbol redeclaration: '{name}'", error_label())
             }
         };
 
