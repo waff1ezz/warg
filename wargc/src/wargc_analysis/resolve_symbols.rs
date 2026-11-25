@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::slice::IterMut;
+use crate::wargc_ast::lexer::Token;
 use crate::wargc_ast::make::BUILT_IN_SYMBOLS;
 use crate::wargc_ast::node::{Expr, Node, StructDecl, SymbolId};
 use crate::wargc_driver::File;
@@ -30,6 +31,29 @@ impl File {
             );
         } else {
             throw_fatal("an attempt to resolve symbols of an unready file")
+        }
+    }
+
+    fn check_name_usage(token: &Token, resolved_symbols: &Vec<(&str, SymbolId)>, source: &str, path: &PathBuf) {
+        let symbol_name = token.original_slice(source);
+
+        let is_used = resolved_symbols
+            .iter()
+            .rev()
+            .find(|symbol| { symbol.0 == symbol_name })
+            .is_some();
+
+        if is_used {
+            let err = SemanticError {
+                src: source,
+                file_path: path.clone(),
+                line: token.pos.line,
+                char: token.pos.char,
+                length: symbol_name.chars().count(),
+                kind: SemanticErrorKind::ForbiddenSymbolRedeclaration(symbol_name),
+            };
+
+            err.throw();
         }
     }
 
@@ -203,14 +227,33 @@ impl File {
                 }
 
                 Node::Function(func_stmt) => {
+                    if global_scope {
+                        Self::check_name_usage(&func_stmt.name, &resolved_symbols, source, path);
+                    }
+
+                    // if global_scope && func_stmt.name.original_slice(source) == "main" && resolved_symbols.iter().any(|s| s.0 == "main") {
+                    //     let err = SemanticError {
+                    //         src: source,
+                    //         file_path: path.clone(),
+                    //         line: func_stmt.name.pos.line,
+                    //         char: func_stmt.name.pos.char,
+                    //         length: 4,
+                    //         kind: SemanticErrorKind::ForbiddenSymbolRedeclaration("main"),
+                    //     };
+                    //
+                    //     err.throw();
+                    // }
+
                     resolved_symbols.push((
                         func_stmt.name.original_slice(source),
                         func_stmt.symbol_id
                     ));
 
-                    if !global_scope {
-                        scope_symbols_counter += 1;
+                    if global_scope {
+                        continue;
                     }
+
+                    scope_symbols_counter += 1;
 
                     if let Some(return_type) = &mut func_stmt.return_type {
                         Self::resolve_expr_symbols(
@@ -222,29 +265,49 @@ impl File {
                         );
                     }
 
-                    for func_param in &func_stmt.args {
+                    /*  all functions are in one scope so folding doesn't occur after function declaration,
+                     *  but it's params are being added to resolved_symbols that's why there's an additional counter to remove them.
+                     *  it doesn't collide with variables declared inside the function because they are removed by a new resolved_scope_symbols() call
+                     */
+
+                    let mut func_params_counter = 0;
+
+                    for func_param in &mut func_stmt.args {
+                        dbg!(&resolved_symbols);
+                        Self::check_name_usage(&func_param.name, &resolved_symbols, source, path);
+
                         resolved_symbols.push((
                             func_param.name.original_slice(source),
                             func_param.symbol_id
                         ));
 
-                        if !global_scope {
-                            scope_symbols_counter += 1;
-                        }
-                    }
-
-                    if !global_scope {
-                        Self::resolve_scope_symbols(
+                        Self::resolve_expr_symbols(
                             path,
                             source,
-                            func_stmt.body.members.iter_mut(),
                             resolved_symbols,
-                            false
+                            &mut func_param.data_type,
+                            None
                         );
+
+                        func_params_counter += 1;
+                        scope_symbols_counter += 1;
                     }
+
+
+                    Self::resolve_scope_symbols(
+                        path,
+                        source,
+                        func_stmt.body.members.iter_mut(),
+                        resolved_symbols,
+                        false
+                    );
+
+                    resolved_symbols.truncate(resolved_symbols.len() - func_params_counter);
                 }
 
                 Node::Variable(var_decl) => {
+                    Self::check_name_usage(&var_decl.name, &resolved_symbols, source, path);
+
                     resolved_symbols.push((
                         var_decl.name.original_slice(source),
                         var_decl.symbol_id
@@ -260,20 +323,24 @@ impl File {
                         );
                     }
 
-                    if !global_scope {
-                        scope_symbols_counter += 1;
-                    }
+                    scope_symbols_counter += 1;
                 }
 
                 Node::Structure(struct_decl) => {
+                    if global_scope {
+                        Self::check_name_usage(&struct_decl.name, &resolved_symbols, source, path);
+                    }
+
                     resolved_symbols.push((
                         struct_decl.name.original_slice(source),
                         struct_decl.symbol_id
                     ));
 
-                    if !global_scope {
-                        scope_symbols_counter += 1;
+                    if global_scope {
+                        continue;
                     }
+
+                    scope_symbols_counter += 1;
 
                     for interface in &mut struct_decl.interfaces {
                         Self::resolve_expr_symbols(
@@ -285,107 +352,74 @@ impl File {
                         );
                     }
 
-                    for field in &struct_decl.fields {
-                        resolved_symbols.push((
-                            field.name.original_slice(source),
-                            field.symbol_id
-                        ));
-
-                        scope_symbols_counter += 1;
-                    }
-
-                    for method in &mut struct_decl.methods {
-                        resolved_symbols.push((
-                            method.name.original_slice(source),
-                            method.symbol_id
-                        ));
-
-                        if let Some(return_type) = &mut method.return_type {
-                            Self::resolve_expr_symbols(
-                                path,
-                                source,
-                                resolved_symbols,
-                                return_type,
-                                None
-                            );
-                        }
-
-                        for func_param in &method.args {
-                            resolved_symbols.push((
-                                func_param.name.original_slice(source),
-                                func_param.symbol_id
-                            ));
-
-                            if !global_scope {
-                                scope_symbols_counter += 1;
-                            }
-                        }
-
-                        if !global_scope {
-                            Self::resolve_scope_symbols(
-                                path,
-                                source,
-                                method.body.members.iter_mut(),
-                                resolved_symbols,
-                                false
-                            );
-                        }
-
-                        scope_symbols_counter += 1;
-                    }
+                    resolved_symbols.push((
+                        "this",
+                        struct_decl.symbol_id
+                    ));
                 }
 
                 Node::Block(block_stmt) => {
-                    if !global_scope {
-                        Self::resolve_scope_symbols(
-                            path,
-                            source,
-                            block_stmt.members.iter_mut(),
-                            resolved_symbols,
-                            false
-                        );
-                    }
+                    Self::resolve_scope_symbols(
+                        path,
+                        source,
+                        block_stmt.members.iter_mut(),
+                        resolved_symbols,
+                        false
+                    );
                 }
 
                 Node::For(for_stmt) => {
+                    Self::check_name_usage(&for_stmt.var.name, &resolved_symbols, source, path);
+
                     resolved_symbols.push((
                         for_stmt.var.name.original_slice(source),
                         for_stmt.var.symbol_id
                     ));
 
-                    if !global_scope {
-                        Self::resolve_scope_symbols(
-                            path,
-                            source,
-                            for_stmt.body.members.iter_mut(),
-                            resolved_symbols,
-                            false
-                        );
-                    }
+                    Self::resolve_scope_symbols(
+                        path,
+                        source,
+                        for_stmt.body.members.iter_mut(),
+                        resolved_symbols,
+                        false
+                    );
 
+                    // this so we remove this additional for-variable
                     resolved_symbols.truncate(resolved_symbols.len() - 1);
                 }
 
                 Node::StaticVariable(var_decl) => {
+                    if global_scope {
+                        Self::check_name_usage(&var_decl.name, &resolved_symbols, source, path);
+                    }
+
                     resolved_symbols.push((
                         var_decl.name.original_slice(source),
                         var_decl.symbol_id
                     ));
 
-                    if !global_scope {
-                        scope_symbols_counter += 1;
+                    if global_scope {
+                        continue;
                     }
+
+                    scope_symbols_counter += 1;
                 }
 
                 Node::Interface(interface_decl) => {
+                    if global_scope {
+                        Self::check_name_usage(&interface_decl.name, &resolved_symbols, source, path);
+                    }
+
                     resolved_symbols.push((
                         interface_decl.name.original_slice(source),
                         interface_decl.symbol_id
                     ));
 
-                    if !global_scope {
-                        scope_symbols_counter += 1;
+                    if global_scope {
+                        continue;
                     }
+
+                    scope_symbols_counter += 1;
                 }
 
                 Node::If(if_stmt) => {
