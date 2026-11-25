@@ -13,7 +13,7 @@ enum ReadMode {
     ReadIdentifierOrKeyword,
     ReadNumberLiteral,
     ReadStringLiteral,
-    ReadOperator,
+    ReadOperator
 }
 
 struct ReadingState<'a> {
@@ -47,6 +47,17 @@ impl File {
                 '\"' => Self::parse_string_literal(
                     &self.source, &mut tokens, self.path.clone(), &mut state, char_byte_idx
                 ),
+
+                '#' => {
+                    while let Some((_, char)) = state.iter.next() {
+                        if char == '\n' {
+                            state.char = 0;
+                            state.line += 1;
+
+                            break;
+                        }
+                    }
+                }
 
                 c if c.is_ascii_punctuation() => Self::parse_operator(
                     &self.source, &mut tokens, &mut state, char_byte_idx
@@ -167,8 +178,6 @@ impl File {
             }
 
             ReadMode::ReadStringLiteral => {
-                let length = token_chars.chars().count();
-
                 match str {
                     Some(str) => Token::new(TokenKind::String(str), state.line, first_char_pos, span),
                     None => throw_fatal("an attempt to push string literal without passing 'str' argument")
