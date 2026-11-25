@@ -6,7 +6,16 @@ use crate::wargc_ast::node::{Node, SymbolId};
 use crate::wargc_driver::File;
 
 pub static SYMBOL_COUNTER: Mutex<usize> = Mutex::new(0);
-pub static BUILT_IN_SYMBOLS: [&str; 5] = ["true", "false", "println", "String", "this"];
+pub static BUILT_IN_SYMBOLS: [&str; 8] = [
+    "true",
+    "false",
+    "println",
+    "String",
+    "int",
+    "float",
+    "bool",
+    "null"
+];
 
 impl File {
     pub fn make_ast(&self, tokens: Vec<Token>) -> Ast {
