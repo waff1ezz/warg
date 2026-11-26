@@ -277,7 +277,6 @@ impl File {
                     let mut func_params_counter = 0;
 
                     for func_param in &mut func_stmt.args {
-                        dbg!(&resolved_symbols);
                         Self::check_name_usage(&func_param.name, &resolved_symbols, source, path);
 
                         resolved_symbols.push((
@@ -360,7 +359,29 @@ impl File {
                         "this",
                         struct_decl.symbol_id
                     ));
-                    
+
+                    for field_decl in &struct_decl.fields {
+                        let is_unique_name = struct_decl.fields
+                            .iter()
+                            .filter(|field| field.name.original_slice(source) != field_decl.name.original_slice(source))
+                            .count()
+                            .lt(&2);
+
+                        if !is_unique_name {
+                            let err = SemanticError {
+                                src: source,
+                                file_path: path.clone(),
+                                line: field_decl.name.pos.line,
+                                char: field_decl.name.pos.char,
+                                length: field_decl.name.original_slice(source).chars().count(),
+                                kind: SemanticErrorKind::ForbiddenSymbolRedeclaration(field_decl.name.original_slice(source)),
+                            };
+
+                            err.throw();
+                        }
+
+                    }
+
                     for method_decl in &mut struct_decl.methods {
                         if let Some(return_type) = &mut method_decl.return_type {
                             Self::resolve_expr_symbols(
