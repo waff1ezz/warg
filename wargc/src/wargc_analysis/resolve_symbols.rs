@@ -56,6 +56,10 @@ impl File {
             err.throw();
         }
     }
+    
+    fn check_struct_props(token: &Token, symbol_id: SymbolId) {
+        
+    }
 
     fn resolve_expr_symbols(path: &PathBuf, source: &str, resolved_symbols: &mut Vec<(&str, SymbolId)>, expr: &mut Expr, ctx: Option<&StructDecl>) {
         match expr {
@@ -356,6 +360,50 @@ impl File {
                         "this",
                         struct_decl.symbol_id
                     ));
+                    
+                    for method_decl in &mut struct_decl.methods {
+                        if let Some(return_type) = &mut method_decl.return_type {
+                            Self::resolve_expr_symbols(
+                                path,
+                                source,
+                                resolved_symbols,
+                                return_type,
+                                None
+                            );
+                        }
+
+                        let mut func_params_counter = 0;
+                        for func_param in &mut method_decl.args {
+                            Self::check_name_usage(&func_param.name, &resolved_symbols, source, path);
+
+                            resolved_symbols.push((
+                                func_param.name.original_slice(source),
+                                func_param.symbol_id
+                            ));
+
+                            Self::resolve_expr_symbols(
+                                path,
+                                source,
+                                resolved_symbols,
+                                &mut func_param.data_type,
+                                None
+                            );
+
+                            func_params_counter += 1;
+                            scope_symbols_counter += 1;
+                        }
+
+
+                        Self::resolve_scope_symbols(
+                            path,
+                            source,
+                            method_decl.body.members.iter_mut(),
+                            resolved_symbols,
+                            false
+                        );
+
+                        resolved_symbols.truncate(resolved_symbols.len() - func_params_counter);
+                    }
                 }
 
                 Node::Block(block_stmt) => {
