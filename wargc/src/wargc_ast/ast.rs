@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::env::var;
 use crate::wargc_ast::node::{Node, SymbolId};
 
 #[derive(Debug)]
@@ -33,14 +34,33 @@ impl Ast {
                             return Some(node);
                         }
                     }
+
+                    return Self::find_symbol(&func_decl.body.members, symbol_id);
                 }
 
-                // Node::If(_) => {}
-                // Node::Import(_) => {}
-                // Node::Variable(_) => {}
-                // Node::StaticVariable(_) => {}
-                // Node::Structure(_) => {}
-                // Node::Interface(_) => {}
+                Node::Variable(var_decl) => {
+                    if var_decl.symbol_id == symbol_id {
+                        return Some(node);
+                    }
+                }
+
+                Node::StaticVariable(var_decl) => {
+                    if var_decl.symbol_id == symbol_id {
+                        return Some(node);
+                    }
+                }
+
+                Node::Structure(struct_decl) => {
+                    if struct_decl.symbol_id == symbol_id {
+                        return Some(node);
+                    }
+                }
+
+                Node::Interface(interface_decl) => {
+                    if interface_decl.symbol_id == symbol_id {
+                        return Some(node);
+                    }
+                }
 
                 _ => return None
             }
