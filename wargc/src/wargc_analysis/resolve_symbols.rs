@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::slice::IterMut;
+use crate::wargc_ast::ast::Ast;
 use crate::wargc_ast::lexer::Token;
 use crate::wargc_ast::make::BUILT_IN_SYMBOLS;
 use crate::wargc_ast::node::{Expr, Node, StructDecl, SymbolId};
@@ -56,24 +57,21 @@ impl File {
             err.throw();
         }
     }
-    
-    fn check_struct_props(token: &Token, symbol_id: SymbolId) {
-        
-    }
 
     fn resolve_expr_symbols(path: &PathBuf, source: &str, resolved_symbols: &mut Vec<(&str, SymbolId)>, expr: &mut Expr, ctx: Option<&StructDecl>) {
         match expr {
             Expr::Identifier { token, decl } => {
-                let symbol_name = token.original_slice(source);
+                let used_symbol_name = token.original_slice(source);
                 let maybe_symbol_decl = resolved_symbols
                     .iter()
                     .rev()
-                    .find(|&&symbol| { symbol.0 == symbol_name });
+                    .find(|&&symbol| { symbol.0 == used_symbol_name });
 
                 if let Some(symbol_decl) = maybe_symbol_decl {
+                    // symbol decl
                     *decl = Some(symbol_decl.1);
                 } else {
-                    if !BUILT_IN_SYMBOLS.contains(&symbol_name) {
+                    if !BUILT_IN_SYMBOLS.contains(&used_symbol_name) {
                         let err = SemanticError {
                             src: source,
                             file_path: path.clone(),
@@ -164,14 +162,6 @@ impl File {
                     base,
                     ctx
                 );
-
-                Self::resolve_expr_symbols(
-                    path,
-                    source,
-                    resolved_symbols,
-                    prop_name,
-                    ctx
-                );
             }
 
             Expr::ConstructorCall { struct_type, args } => {
@@ -233,27 +223,12 @@ impl File {
                 Node::Function(func_stmt) => {
                     if global_scope {
                         Self::check_name_usage(&func_stmt.name, &resolved_symbols, source, path);
-                    }
 
-                    // if global_scope && func_stmt.name.original_slice(source) == "main" && resolved_symbols.iter().any(|s| s.0 == "main") {
-                    //     let err = SemanticError {
-                    //         src: source,
-                    //         file_path: path.clone(),
-                    //         line: func_stmt.name.pos.line,
-                    //         char: func_stmt.name.pos.char,
-                    //         length: 4,
-                    //         kind: SemanticErrorKind::ForbiddenSymbolRedeclaration("main"),
-                    //     };
-                    //
-                    //     err.throw();
-                    // }
+                        resolved_symbols.push((
+                            func_stmt.name.original_slice(source),
+                            func_stmt.symbol_id
+                        ));
 
-                    resolved_symbols.push((
-                        func_stmt.name.original_slice(source),
-                        func_stmt.symbol_id
-                    ));
-
-                    if global_scope {
                         continue;
                     }
 
@@ -332,14 +307,12 @@ impl File {
                 Node::Structure(struct_decl) => {
                     if global_scope {
                         Self::check_name_usage(&struct_decl.name, &resolved_symbols, source, path);
-                    }
 
-                    resolved_symbols.push((
-                        struct_decl.name.original_slice(source),
-                        struct_decl.symbol_id
-                    ));
+                        resolved_symbols.push((
+                            struct_decl.name.original_slice(source),
+                            struct_decl.symbol_id
+                        ));
 
-                    if global_scope {
                         continue;
                     }
 
@@ -361,11 +334,19 @@ impl File {
                     ));
 
                     for field_decl in &struct_decl.fields {
-                        let is_unique_name = struct_decl.fields
-                            .iter()
-                            .filter(|field| field.name.original_slice(source) != field_decl.name.original_slice(source))
-                            .count()
-                            .lt(&2);
+                        let is_unique_name = {
+                            let fields_amount = struct_decl.fields
+                                .iter()
+                                .filter(|field| field.name.original_slice(source) == field_decl.name.original_slice(source))
+                                .count();
+
+                            let methods_amount = struct_decl.methods
+                                .iter()
+                                .filter(|method| method.name.original_slice(source) == field_decl.name.original_slice(source))
+                                .count();
+
+                            fields_amount + methods_amount < 2
+                        };
 
                         if !is_unique_name {
                             let err = SemanticError {
@@ -379,7 +360,28 @@ impl File {
 
                             err.throw();
                         }
+                    }
 
+                    // can't be together due to mutable borrow in the second loop
+                    for method_decl in &struct_decl.methods {
+                        let is_unique_name = struct_decl.methods
+                            .iter()
+                            .filter(|method| method.name.original_slice(source) == method_decl.name.original_slice(source))
+                            .count()
+                            .lt(&2);
+
+                        if !is_unique_name {
+                            let err = SemanticError {
+                                src: source,
+                                file_path: path.clone(),
+                                line: method_decl.name.pos.line,
+                                char: method_decl.name.pos.char,
+                                length: method_decl.name.original_slice(source).chars().count(),
+                                kind: SemanticErrorKind::ForbiddenSymbolRedeclaration(method_decl.name.original_slice(source)),
+                            };
+
+                            err.throw();
+                        }
                     }
 
                     for method_decl in &mut struct_decl.methods {
@@ -460,14 +462,12 @@ impl File {
                 Node::StaticVariable(var_decl) => {
                     if global_scope {
                         Self::check_name_usage(&var_decl.name, &resolved_symbols, source, path);
-                    }
 
-                    resolved_symbols.push((
-                        var_decl.name.original_slice(source),
-                        var_decl.symbol_id
-                    ));
+                        resolved_symbols.push((
+                            var_decl.name.original_slice(source),
+                            var_decl.symbol_id
+                        ));
 
-                    if global_scope {
                         continue;
                     }
 
@@ -477,14 +477,12 @@ impl File {
                 Node::Interface(interface_decl) => {
                     if global_scope {
                         Self::check_name_usage(&interface_decl.name, &resolved_symbols, source, path);
-                    }
 
-                    resolved_symbols.push((
-                        interface_decl.name.original_slice(source),
-                        interface_decl.symbol_id
-                    ));
+                        resolved_symbols.push((
+                            interface_decl.name.original_slice(source),
+                            interface_decl.symbol_id
+                        ));
 
-                    if global_scope {
                         continue;
                     }
 
@@ -529,10 +527,13 @@ impl File {
                     );
                 }
 
-                Node::Import(_) => todo!()
+                Node::Import(import_stmt) => {
+
+                }
             }
         }
 
+        dbg!(&resolved_symbols, scope_symbols_counter);
         resolved_symbols.truncate(resolved_symbols.len() - scope_symbols_counter);
     }
 }
