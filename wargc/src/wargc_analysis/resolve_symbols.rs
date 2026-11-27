@@ -301,6 +301,16 @@ impl File {
                         );
                     }
 
+                    if let Some(value) = &mut var_decl.value {
+                        Self::resolve_expr_symbols(
+                            path,
+                            source,
+                            resolved_symbols,
+                            value,
+                            None
+                        );
+                    }
+
                     scope_symbols_counter += 1;
                 }
 
